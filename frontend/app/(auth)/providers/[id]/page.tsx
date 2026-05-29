@@ -16,10 +16,23 @@ type Provider = {
 };
 type Props = { params: Promise<{ id: string }> };
 
+const S = (price: number) => [
+  { id: "1", title: "Bate-papo", description: "Sessão de 30min", price, duration: 30 },
+  { id: "2", title: "Partida / Sessão", description: "Sessão de 1h", price: price * 2, duration: 60 },
+];
+const R = (name: string) => [{ id: "1", rating: 5, comment: "Experiência incrível!", services: { id: 1, title: "Bate-papo" }, user: { name } }];
+
 const MOCK_PROVIDERS: Record<string, Provider> = {
-  "1": { id: 1, avatarUrl: "/avatar.jpg", bio: "Jogador de Futebol e CS nas horas vagas", categories: ["Futebol", "Games"], user: { name: "Neymar" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }, { id: "2", title: "Partida de CS", description: "Sessão de 1h", price: 2000, duration: 60 }], reviews: [{ id: "1", rating: 5, comment: "Nunca imaginei que um dia pudesse conversar com o meu ídolo!", services: { id: 1, title: "Bate-papo" }, user: { name: "Ryan Charles" } }], images: [] },
-  "2": { id: 2, avatarUrl: "/gaules.jpg", bio: "Streamer e Gamer", categories: ["Streaming", "Games"], user: { name: "Gaules" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }], reviews: [{ id: "1", rating: 5, comment: "Incrível!", services: { id: 1, title: "Bate-papo" }, user: { name: "Deyvison" } }], images: [] },
-  "3": { id: 3, avatarUrl: "/caze.jpg", bio: "Apresentador e streamer", categories: ["Futebol", "Games", "Streaming"], user: { name: "Caze" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }], reviews: [], images: [] },
+  "1":  { id: 1,  avatarUrl: "/avatar.jpg",  bio: "Jogador de Futebol e CS nas horas vagas",  categories: ["Futebol","Games"],            user: { name: "Neymar Jr" },    services: S(350),  reviews: R("Ryan Charles"), images: ["/ney1.jpg","/ney2.jpeg","/ney3.jpg"] },
+  "2":  { id: 2,  avatarUrl: "/gaules.jpg",   bio: "Streamer profissional de CS:GO",           categories: ["Games","Streaming"],           user: { name: "Ronaldinho" },   services: S(280),  reviews: R("Carlos"),       images: [] },
+  "3":  { id: 3,  avatarUrl: "/caze.jpg",     bio: "Apresentador e streamer",                  categories: ["Futebol","Games","Streaming"], user: { name: "Kaká" },         services: S(220),  reviews: R("João"),         images: [] },
+  "4":  { id: 4,  avatarUrl: "/avatar.jpg",   bio: "Ícone do futebol brasileiro",              categories: ["Futebol"],                     user: { name: "Robinho" },      services: S(190),  reviews: R("Marcos"),       images: [] },
+  "5":  { id: 5,  avatarUrl: "/avatar.jpg",   bio: "O Imperador do futebol",                   categories: ["Futebol"],                     user: { name: "Adriano" },      services: S(160),  reviews: R("Lucas"),        images: [] },
+  "6":  { id: 6,  avatarUrl: "/avatar.jpg",   bio: "Atacante veloz e habilidoso",              categories: ["Futebol"],                     user: { name: "Dentinho" },     services: S(120),  reviews: R("Pedro"),        images: [] },
+  "7":  { id: 7,  avatarUrl: "/avatar.jpg",   bio: "Artilheiro da seleção",                    categories: ["Futebol"],                     user: { name: "Fred" },         services: S(110),  reviews: R("Ana"),          images: [] },
+  "8":  { id: 8,  avatarUrl: "/gaules.jpg",   bio: "O maior streamer de CS do Brasil",         categories: ["Games","Streaming"],           user: { name: "Gaules" },       services: S(200),  reviews: R("Felipe"),       images: ["/gaules1.jpg","/gaules2.jpg"] },
+  "9":  { id: 9,  avatarUrl: "/avatar.jpg",   bio: "Pro player de Free Fire",                  categories: ["Games"],                       user: { name: "Nobru" },        services: S(150),  reviews: R("Rafael"),       images: [] },
+  "10": { id: 10, avatarUrl: "/avatar.jpg",   bio: "Streamer e criador de conteúdo",           categories: ["Games","Streaming"],           user: { name: "Loud Coringa" }, services: S(130),  reviews: R("Bruno"),        images: [] },
 };
 
 async function getProvider(id: string): Promise<Provider> {

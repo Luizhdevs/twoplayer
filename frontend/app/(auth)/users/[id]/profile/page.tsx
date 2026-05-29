@@ -35,7 +35,8 @@ export default function ProfilePage() {
         const stored = localStorage.getItem("tp_user");
         if (stored) {
           const local = JSON.parse(stored);
-          if (String(local.id) === String(id)) { setUser({ id: local.id, name: local.name, email: local.email }); setLoading(false); return; }
+          const localId = local.uid ?? local.id;
+        if (String(localId) === String(id)) { setUser({ id: localId, name: local.name, email: local.email }); setLoading(false); return; }
         }
       } catch {}
       setError("Não foi possível carregar o perfil."); setLoading(false);

@@ -10,9 +10,9 @@ function getUserInfo(): UserInfo {
   if (typeof window === "undefined") return null;
   try {
     const colab = localStorage.getItem("tp_colab");
-    if (colab) { const d = JSON.parse(colab); if (d.id) return { id: d.id, tipo: "colab" }; }
+    if (colab) { const d = JSON.parse(colab); const id = d.uid ?? d.id; if (id) return { id, tipo: "colab" }; }
     const user = localStorage.getItem("tp_user");
-    if (user) { const d = JSON.parse(user); if (d.id) return { id: d.id, tipo: "user" }; }
+    if (user) { const d = JSON.parse(user); const id = d.uid ?? d.id; if (id) return { id, tipo: "user" }; }
   } catch {}
   return null;
 }
