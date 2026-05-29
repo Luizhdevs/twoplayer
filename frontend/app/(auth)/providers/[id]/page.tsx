@@ -16,10 +16,21 @@ type Provider = {
 };
 type Props = { params: Promise<{ id: string }> };
 
+const MOCK_PROVIDERS: Record<string, Provider> = {
+  "1": { id: 1, avatarUrl: "/avatar.jpg", bio: "Jogador de Futebol e CS nas horas vagas", categories: ["Futebol", "Games"], user: { name: "Neymar" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }, { id: "2", title: "Partida de CS", description: "Sessão de 1h", price: 2000, duration: 60 }], reviews: [{ id: "1", rating: 5, comment: "Nunca imaginei que um dia pudesse conversar com o meu ídolo!", services: { id: 1, title: "Bate-papo" }, user: { name: "Ryan Charles" } }], images: [] },
+  "2": { id: 2, avatarUrl: "/gaules.jpg", bio: "Streamer e Gamer", categories: ["Streaming", "Games"], user: { name: "Gaules" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }], reviews: [{ id: "1", rating: 5, comment: "Incrível!", services: { id: 1, title: "Bate-papo" }, user: { name: "Deyvison" } }], images: [] },
+  "3": { id: 3, avatarUrl: "/caze.jpg", bio: "Apresentador e streamer", categories: ["Futebol", "Games", "Streaming"], user: { name: "Caze" }, services: [{ id: "1", title: "Bate-papo", description: "Sessão de 30min", price: 1000, duration: 30 }], reviews: [], images: [] },
+};
+
 async function getProvider(id: string): Promise<Provider> {
-  const res = await fetch(`http://localhost:3001/providers/${id}`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Erro ao buscar prestador");
-  return res.json();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+  try {
+    const res = await fetch(`${apiUrl}/providers/${id}`, { cache: "no-store" });
+    if (res.ok) return res.json();
+  } catch {}
+  const mock = MOCK_PROVIDERS[id];
+  if (mock) return mock;
+  throw new Error("Prestador não encontrado");
 }
 
 export default async function ProviderPage({ params }: Props) {

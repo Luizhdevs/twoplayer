@@ -27,7 +27,8 @@ export default function ProfilePage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`http://localhost:3001/users/${id}/profile`, { cache: "no-store" });
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+        const res = await fetch(`${apiUrl}/users/${id}/profile`, { cache: "no-store" });
         if (res.ok) { setUser(await res.json()); setLoading(false); return; }
       } catch {}
       try {
