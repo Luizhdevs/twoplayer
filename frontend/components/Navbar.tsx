@@ -4,11 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/providers/AuthProvider";
+import { useUnreadCount } from "@/hooks/useNotifications";
 
 export default function Navbar() {
   const { dbUser } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [providerId, setProviderId] = useState<string | null>(null);
+  const { data: unreadData } = useUnreadCount(dbUser?.id ?? "");
+  const unread = unreadData?.unread ?? 0;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -37,11 +40,21 @@ export default function Navbar() {
           text-decoration: none; padding: 7px 14px; border-radius: 8px;
           color: rgba(255,255,255,0.8);
           transition: background 0.2s, color 0.2s;
+          position: relative;
         }
         .tp-nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .tp-nav-disabled {
           font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.3);
           padding: 7px 14px; border-radius: 8px; cursor: not-allowed;
+        }
+        .tp-notif-badge {
+          position: absolute; top: 2px; right: 2px;
+          background: #fd5b01; color: #fff;
+          font-size: 9px; font-weight: 700;
+          min-width: 16px; height: 16px;
+          border-radius: 8px; padding: 0 4px;
+          display: flex; align-items: center; justify-content: center;
+          line-height: 1; border: 1.5px solid #0d0d0d;
         }
       `}</style>
 
@@ -73,6 +86,14 @@ export default function Navbar() {
             <Link href="/home" className="tp-nav-link">Home</Link>
             {dbUser && (
               <Link href="/appointments" className="tp-nav-link">Agendamentos</Link>
+            )}
+            {dbUser && (
+              <Link href={`/users/${dbUser.id}/notifications`} className="tp-nav-link">
+                🔔
+                {unread > 0 && (
+                  <span className="tp-notif-badge">{unread > 9 ? "9+" : unread}</span>
+                )}
+              </Link>
             )}
             {profileHref
               ? <Link href={profileHref} className="tp-nav-link">Meu Perfil</Link>

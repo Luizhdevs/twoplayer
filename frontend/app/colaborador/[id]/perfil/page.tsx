@@ -10,18 +10,13 @@ import { useMyProviderProfile, useProvider, useAddGalleryImage, useRemoveGallery
 import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
 import { useWallet } from "@/hooks/useWallet";
 import { useServicesByProvider, useCreateService, useUpdateService, useDeleteService } from "@/hooks/useServices";
+import { useReviewsByProvider } from "@/hooks/useReviews";
 import type { Service } from "@/services/services.service";
 import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
-type Comentario = { id: number; usuario: string; servico: string; nota: number; texto: string; data: string };
-type Colaborador= { id: string | number; name: string; email: string; bio?: string; avatarUrl?: string };
-
-const MOCK_COMENTARIOS: Comentario[] = [
-  { id: 1, usuario: "Ryan Charles",    servico: "Bate-papo",    nota: 5, texto: "Nunca imaginei que um dia pudesse conversar com o meu ídolo!", data: "2026-04-18" },
-  { id: 2, usuario: "Deyvison Dênnis", servico: "Partida de CS", nota: 4, texto: "Craque dentro e fora dos gramados!", data: "2026-04-10" },
-];
+type Colaborador = { id: string | number; name: string; email: string; bio?: string; avatarUrl?: string };
 
 // ── Status config (para dashboard de appointments) ────────────────────────────
 
@@ -205,8 +200,9 @@ export default function ColaboradorPerfilPage() {
   const [sOk,     setSOk]     = useState(false);
   const [sErr,    setSErr]    = useState("");
 
-  // Serviços reais via API
+  // Serviços e reviews reais via API
   const { data: servicos = [], isLoading: servicosLoading } = useServicesByProvider(id);
+  const { data: reviews = [] } = useReviewsByProvider(id);
   const createService = useCreateService();
   const updateService = useUpdateService(id);
   const deleteService = useDeleteService(id);
@@ -600,18 +596,22 @@ export default function ColaboradorPerfilPage() {
             </div>
           </div>
 
-          {/* COMENTÁRIOS */}
+          {/* AVALIAÇÕES RECEBIDAS */}
           <div className="cp-card">
-            <div className="cp-section-title">Comentários dos Clientes</div>
-            {MOCK_COMENTARIOS.map(c => (
-              <div key={c.id} className="cp-comment">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span className="cp-comment-user">{c.usuario}</span>
-                  <span className="cp-comment-service">{c.servico}</span>
+            <div className="cp-section-title">Avaliações recebidas</div>
+            {reviews.length === 0 ? (
+              <p style={{ fontSize:13, color:"#555", textAlign:"center", padding:"1rem 0" }}>
+                Nenhuma avaliação recebida ainda.
+              </p>
+            ) : reviews.map((r: any) => (
+              <div key={r.id} className="cp-comment">
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                  <span className="cp-comment-user">{r.user?.name ?? "Cliente"}</span>
+                  <span className="cp-comment-service">{r.service?.title ?? "Serviço"}</span>
                 </div>
-                <Stars nota={c.nota} />
-                <p className="cp-comment-text">"{c.texto}"</p>
-                <p className="cp-comment-date">{new Date(c.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                <Stars nota={r.rating} />
+                {r.comment && <p className="cp-comment-text">"{r.comment}"</p>}
+                <p className="cp-comment-date">{new Date(r.createdAt).toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" })}</p>
               </div>
             ))}
           </div>

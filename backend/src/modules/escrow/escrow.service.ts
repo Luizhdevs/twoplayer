@@ -192,24 +192,26 @@ export class EscrowService {
         where: { ownerId: escrow.provider.userId, deletedAt: null },
       });
 
-      if (wallet) {
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data:  { balance: { increment: escrow.amount } },
-        });
-        await tx.walletTransaction.create({
-          data: {
-            walletId:    wallet.id,
-            type:        'CREDIT',
-            amount:      escrow.amount,
-            description: `Liberação de escrow — agendamento ${appointmentId}`,
-            referenceId: escrow.id,
-            status:      'COMPLETED',
-          },
-        });
-      } else {
-        this.logger.warn(`Wallet não encontrada para provider=${escrow.providerId}`);
+      if (!wallet) {
+        throw new NotFoundException(
+          `Wallet não encontrada para provider=${escrow.providerId}. Crédito não pode ser processado.`,
+        );
       }
+
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data:  { balance: { increment: escrow.amount } },
+      });
+      await tx.walletTransaction.create({
+        data: {
+          walletId:    wallet.id,
+          type:        'CREDIT',
+          amount:      escrow.amount,
+          description: `Liberação de escrow — agendamento ${appointmentId}`,
+          referenceId: escrow.id,
+          status:      'COMPLETED',
+        },
+      });
 
       // 4. Auditoria
       await tx.appointmentEvent.create({

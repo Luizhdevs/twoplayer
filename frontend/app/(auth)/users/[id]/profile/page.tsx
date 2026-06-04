@@ -48,7 +48,12 @@ export default function ProfilePage() {
   useEffect(() => {
     async function load() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+          setError("Configuração inválida: API URL não definida.");
+          setLoading(false);
+          return;
+        }
         const res = await fetch(`${apiUrl}/api/users/${id}/profile`, { cache: "no-store" });
         if (res.ok) {
           const body = await res.json();
@@ -56,8 +61,14 @@ export default function ProfilePage() {
           setLoading(false);
           return;
         }
-      } catch {}
-      setError("Não foi possível carregar o perfil.");
+        if (res.status === 404) {
+          setError("Perfil não encontrado.");
+        } else {
+          setError("Erro ao carregar o perfil. Tente novamente.");
+        }
+      } catch (err) {
+        setError("Erro de conexão. Verifique sua internet e tente novamente.");
+      }
       setLoading(false);
     }
     load();
@@ -87,13 +98,17 @@ export default function ProfilePage() {
   }
 
   if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#aaa", fontFamily: "'Sora',sans-serif" }}>
-      Carregando...
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#0d0d0d", flexDirection:"column", gap:16, fontFamily:"'Sora',sans-serif" }}>
+      <style>{`@keyframes ppSpin2 { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ width:40, height:40, borderRadius:"50%", border:"3px solid #333", borderTopColor:"#fd5b01", animation:"ppSpin2 0.8s linear infinite" }} />
+      <span style={{ color:"#555", fontSize:13 }}>Carregando perfil...</span>
     </div>
   );
   if (error) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#f87171", fontFamily: "'Sora',sans-serif" }}>
-      {error}
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#0d0d0d", flexDirection:"column", gap:12, fontFamily:"'Sora',sans-serif" }}>
+      <span style={{ fontSize:32 }}>😕</span>
+      <p style={{ color:"#f87171", fontSize:15, fontWeight:600 }}>{error}</p>
+      <a href="/home" style={{ color:"#fd5b01", textDecoration:"none", fontSize:13 }}>← Voltar para Home</a>
     </div>
   );
   if (!user) return null;

@@ -1,17 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { useWallet } from "@/hooks/useWallet";
-
-type Transacao = {
-  id: number;
-  tipo: "recarga" | "gasto" | "resgate";
-  descricao: string;
-  valor: number;
-  data: string;
-};
+import type { WalletTransaction } from "@/services/wallet.service";
 
 type Cartao = {
   id: number;
@@ -20,13 +13,6 @@ type Cartao = {
   validade: string;
   bandeira: string;
 };
-
-const TRANSACOES_MOCK: Transacao[] = [
-  { id: 1, tipo: "recarga", descricao: "Recarga via Pix",          valor: 100.00, data: "2026-04-20" },
-  { id: 2, tipo: "gasto",   descricao: "Bate-papo com Neymar",     valor: 50.00,  data: "2026-04-18" },
-  { id: 3, tipo: "recarga", descricao: "Recarga via cartão",       valor: 200.00, data: "2026-04-15" },
-  { id: 4, tipo: "gasto",   descricao: "Partida de CS com Gaules", valor: 100.00, data: "2026-04-10" },
-];
 
 const VALORES_RAPIDOS = [10, 20, 50, 100, 200, 500];
 const TAXA_RESGATE = 0.15;
@@ -116,11 +102,11 @@ export default function WalletPage() {
 
   const isColab = dbUser?.role === "PROVIDER";
 
-  const { data: walletData } = useWallet(id);
+  const { data: walletData, isLoading: walletLoading } = useWallet(id);
   const saldo = (walletData?.balance ?? 0) / 100;
+  const transactions: WalletTransaction[] = walletData?.transactions ?? [];
 
-  const [transacoes, setTransacoes] = useState<Transacao[]>(TRANSACOES_MOCK);
-  const [cartoes, setCartoes]       = useState<Cartao[]>([]);
+  const [cartoes, setCartoes] = useState<Cartao[]>([]);
   const [abaAtiva, setAbaAtiva]     = useState<"todos"|"recargas"|"gastos">("todos");
 
   const [showRecarga,  setShowRecarga]  = useState(false);
@@ -145,11 +131,27 @@ export default function WalletPage() {
   const [resgateOk,     setResgateOk]     = useState(false);
   const [resgateErro,   setResgateErro]   = useState("");
 
-  const totalRecargas = transacoes.filter(t => t.tipo === "recarga").reduce((a,t) => a + t.valor, 0);
-  const totalGastos   = transacoes.filter(t => t.tipo === "gasto").reduce((a,t) => a + t.valor, 0);
-  const txFiltradas   = transacoes.filter(t =>
-    abaAtiva === "todos" ? true : abaAtiva === "recargas" ? t.tipo === "recarga" : t.tipo === "gasto"
-  );
+  const totalRecargas = transactions
+    .filter(t => t.type === "credit" || t.type === "refund")
+    .reduce((a, t) => a + t.amount / 100, 0);
+  const totalGastos = transactions
+    .filter(t => t.type === "debit" || t.type === "withdrawal")
+    .reduce((a, t) => a + t.amount / 100, 0);
+
+  const txFiltradas = transactions.filter(t => {
+    if (abaAtiva === "todos") return true;
+    if (abaAtiva === "recargas") return t.type === "credit" || t.type === "refund";
+    return t.type === "debit" || t.type === "withdrawal";
+  });
+
+  function txTipo(t: WalletTransaction): "recarga" | "gasto" | "resgate" {
+    if (t.type === "credit") return "recarga";
+    if (t.type === "withdrawal") return "resgate";
+    return "gasto";
+  }
+  function txSinal(t: WalletTransaction) {
+    return t.type === "credit" || t.type === "refund" ? "+ " : "- ";
+  }
 
   const valorResgateNum = parseFloat(valorResgate) || 0;
   const taxaValor       = valorResgateNum * TAXA_RESGATE;
@@ -162,7 +164,6 @@ export default function WalletPage() {
   function handleConfirmarRecarga() {
     const valor = parseFloat(valorRecarga);
     if (!valor || valor <= 0 || metodoPagamento !== "cartao") return;
-    setTransacoes(prev => [{ id: Date.now(), tipo: "recarga", descricao: "Recarga via Cartão", valor, data: new Date().toISOString().split("T")[0] }, ...prev]);
     setRecargaFeita(true);
   }
   function handleFecharRecarga() {
@@ -193,7 +194,6 @@ export default function WalletPage() {
     setResgateErro("");
     if (!valorResgateNum || valorResgateNum <= 0) { setResgateErro("Digite um valor válido."); return; }
     if (valorResgateNum > saldo) { setResgateErro("Saldo insuficiente."); return; }
-    setTransacoes(prev => [{ id: Date.now(), tipo: "resgate" as const, descricao: "Resgate via Pix (taxa 15%)", valor: valorResgateNum, data: new Date().toISOString().split("T")[0] }, ...prev]);
     setResgateOk(true);
   }
   function handleFecharReceber() {
@@ -337,18 +337,30 @@ export default function WalletPage() {
             <div className="wl-section-title">Histórico</div>
             <div className="wl-tabs">
               <button className={`wl-tab ${abaAtiva==="todos"?"active":""}`} onClick={() => setAbaAtiva("todos")}>Todos</button>
-              <button className={`wl-tab ${abaAtiva==="recargas"?"active":""}`} onClick={() => setAbaAtiva("recargas")}>Recargas</button>
-              <button className={`wl-tab ${abaAtiva==="gastos"?"active":""}`} onClick={() => setAbaAtiva("gastos")}>Gastos</button>
+              <button className={`wl-tab ${abaAtiva==="recargas"?"active":""}`} onClick={() => setAbaAtiva("recargas")}>Entradas</button>
+              <button className={`wl-tab ${abaAtiva==="gastos"?"active":""}`} onClick={() => setAbaAtiva("gastos")}>Saídas</button>
             </div>
-            {txFiltradas.length === 0 ? (
-              <p style={{ fontSize:13, color:"#999", textAlign:"center", padding:"1rem 0" }}>Nenhuma transação encontrada.</p>
-            ) : txFiltradas.map(t => (
-              <div key={t.id} className="wl-tx">
-                <div className={`wl-tx-icon ${t.tipo}`}>{t.tipo==="recarga"?"💰":t.tipo==="resgate"?"💸":"🔗"}</div>
-                <div className="wl-tx-desc"><p>{t.descricao}</p><span>{formatData(t.data)}</span></div>
-                <div className={`wl-tx-valor ${t.tipo}`}>{t.tipo==="gasto" ? "- " : "+ "} R$ {t.valor.toFixed(2).replace(".",",")}</div>
-              </div>
-            ))}
+            {walletLoading ? (
+              <p style={{ fontSize:13, color:"#666", textAlign:"center", padding:"1rem 0" }}>Carregando transações...</p>
+            ) : txFiltradas.length === 0 ? (
+              <p style={{ fontSize:13, color:"#555", textAlign:"center", padding:"1.5rem 0" }}>
+                {transactions.length === 0 ? "Nenhuma transação ainda." : "Nenhuma transação nesta categoria."}
+              </p>
+            ) : txFiltradas.map(t => {
+              const tipo = txTipo(t);
+              return (
+                <div key={t.id} className="wl-tx">
+                  <div className={`wl-tx-icon ${tipo}`}>{tipo==="recarga"?"💰":tipo==="resgate"?"💸":"🔗"}</div>
+                  <div className="wl-tx-desc">
+                    <p>{t.description ?? (tipo === "recarga" ? "Crédito recebido" : tipo === "resgate" ? "Saque" : "Débito")}</p>
+                    <span>{new Date(t.createdAt).toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" })}</span>
+                  </div>
+                  <div className={`wl-tx-valor ${tipo}`}>
+                    {txSinal(t)} R$ {(t.amount / 100).toFixed(2).replace(".",",")}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
