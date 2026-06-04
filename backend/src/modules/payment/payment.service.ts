@@ -244,9 +244,10 @@ export class PaymentService {
       });
 
       if (isApproved) {
+        const meetingUrl = `https://meet.jit.si/twoplayers-${appointmentId}`;
         await tx.appointment.update({
           where: { id: appointmentId },
-          data:  { status: 'PAID' },
+          data:  { status: 'PAID', meetingUrl },
         });
 
         // FASE 3: Criar escrow com valor retido (HELD) dentro da mesma transaction

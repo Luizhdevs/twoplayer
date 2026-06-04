@@ -82,6 +82,10 @@ export default function ProviderPage() {
           display: grid; grid-template-columns: repeat(3, 1fr);
           gap: 10px; margin-top: 1.25rem;
         }
+        @media (max-width: 480px) {
+          .pv-gallery { grid-template-columns: repeat(2, 1fr); }
+          .pv-page { padding: 4.5rem 1rem 2rem; }
+        }
         .pv-gallery-item {
           border-radius: 12px; overflow: hidden;
           aspect-ratio: 1 / 1; position: relative;
@@ -167,7 +171,7 @@ export default function ProviderPage() {
                 <p className="pv-service-desc">{service.description}</p>
                 <div className="pv-service-footer">
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <span className="pv-service-price">R$ {service.price}</span>
+                    <span className="pv-service-price">R$ {Number(service.price).toFixed(2)}</span>
                     <span className="pv-service-duration">⏱ {service.duration} min</span>
                   </div>
                   <AgendarButton
@@ -175,7 +179,7 @@ export default function ProviderPage() {
                     providerName={provider.user?.name}
                     serviceId={service.id}
                     serviceTitle={service.title}
-                    servicePrice={service.price}
+                    servicePrice={Number(service.price)}
                     serviceDuration={service.duration}
                   />
                 </div>

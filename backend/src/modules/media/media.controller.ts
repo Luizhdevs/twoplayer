@@ -3,7 +3,10 @@ import {
   Body,
   Controller,
   Delete,
+  forwardRef,
   Get,
+  Inject,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -14,13 +17,18 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { MediaCategory } from '@prisma/client';
 import { MediaService } from './media.service';
+import { UserRepository } from '../user/user.repository';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DecodedIdToken } from 'firebase-admin/auth';
 import { ALLOWED_MIME_TYPES, MAX_DOCUMENT_SIZE } from './media.constants';
 
 @Controller('media')
 export class MediaController {
-  constructor(private readonly mediaService: MediaService) {}
+  constructor(
+    private readonly mediaService: MediaService,
+    @Inject(forwardRef(() => UserRepository))
+    private readonly userRepo: UserRepository,
+  ) {}
 
   @Post('upload')
   @UseInterceptors(
@@ -36,14 +44,16 @@ export class MediaController {
   async upload(
     @UploadedFile() file: Express.Multer.File,
     @Body('category') category: string,
-    @CurrentUser() user: DecodedIdToken,
+    @CurrentUser() firebaseUser: DecodedIdToken,
   ) {
     if (!category || !(category in MediaCategory)) {
       throw new BadRequestException(
         `category inválido. Valores: ${Object.values(MediaCategory).join(', ')}`,
       );
     }
-    return this.mediaService.upload(file, category as MediaCategory, user.uid);
+    const user = await this.userRepo.findByFirebaseUid(firebaseUser.uid);
+    if (!user) throw new NotFoundException('Usuário não encontrado');
+    return this.mediaService.upload(file, category as MediaCategory, user.id);
   }
 
   @Get('mine')

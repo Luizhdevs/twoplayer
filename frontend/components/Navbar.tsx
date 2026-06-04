@@ -9,7 +9,6 @@ import { useUnreadCount } from "@/hooks/useNotifications";
 export default function Navbar() {
   const { dbUser } = useAuth();
   const [scrolled, setScrolled] = useState(false);
-  const [providerId, setProviderId] = useState<string | null>(null);
   const { data: unreadData } = useUnreadCount(dbUser?.id ?? "");
   const unread = unreadData?.unread ?? 0;
 
@@ -20,13 +19,9 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    setProviderId(localStorage.getItem("tp_provider_id"));
-  }, [dbUser]);
-
   const profileHref = dbUser
-    ? providerId
-      ? `/colaborador/${providerId}/perfil`
+    ? dbUser.role === "PROVIDER"
+      ? `/colaborador/${dbUser.id}/perfil`
       : `/users/${dbUser.id}/profile`
     : null;
 
@@ -40,7 +35,7 @@ export default function Navbar() {
           text-decoration: none; padding: 7px 14px; border-radius: 8px;
           color: rgba(255,255,255,0.8);
           transition: background 0.2s, color 0.2s;
-          position: relative;
+          position: relative; white-space: nowrap;
         }
         .tp-nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .tp-nav-disabled {
@@ -55,6 +50,12 @@ export default function Navbar() {
           border-radius: 8px; padding: 0 4px;
           display: flex; align-items: center; justify-content: center;
           line-height: 1; border: 1.5px solid #0d0d0d;
+        }
+        /* Hide text labels on small screens, keep icons */
+        @media (max-width: 480px) {
+          .tp-nav-text { display: none; }
+          .tp-nav-link { padding: 8px 10px; }
+          .tp-logo-text { display: none; }
         }
       `}</style>
 
@@ -76,16 +77,16 @@ export default function Navbar() {
           {/* LOGO */}
           <Link href="/home" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
             <Image src="/logo.png" width={36} height={36} alt="TwoPlayers" />
-            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.03em", color: "#fff" }}>
+            <span className="tp-logo-text" style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.03em", color: "#fff" }}>
               Two<span style={{ color: "#fd5b01" }}>Players</span>
             </span>
           </Link>
 
           {/* LINKS */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Link href="/home" className="tp-nav-link">Home</Link>
+            <Link href="/home" className="tp-nav-link">🏠<span className="tp-nav-text"> Home</span></Link>
             {dbUser && (
-              <Link href="/appointments" className="tp-nav-link">Agendamentos</Link>
+              <Link href="/appointments" className="tp-nav-link">📋<span className="tp-nav-text"> Agendamentos</span></Link>
             )}
             {dbUser && (
               <Link href="/notifications" className="tp-nav-link">
@@ -96,8 +97,8 @@ export default function Navbar() {
               </Link>
             )}
             {profileHref
-              ? <Link href={profileHref} className="tp-nav-link">Meu Perfil</Link>
-              : <span className="tp-nav-disabled">Meu Perfil</span>
+              ? <Link href={profileHref} className="tp-nav-link">👤<span className="tp-nav-text"> Perfil</span></Link>
+              : <span className="tp-nav-disabled">👤</span>
             }
           </div>
         </div>

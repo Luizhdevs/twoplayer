@@ -224,7 +224,7 @@ export default function AgendarButton({
                   onChange={e => handleDateChange(e.target.value)}
                 />
                 {erroData && <p className="ag-erro">⚠️ {erroData}</p>}
-                {!dbUser && <p className="ag-login-warn">Faça login para agendar.</p>}
+                {!dbUser && <p className="ag-login-warn">Entre na sua conta para agendar.</p>}
               </>
             )}
 
@@ -244,7 +244,7 @@ export default function AgendarButton({
 
                 {!loading && slots.length === 0 && (
                   <div className="ag-no-slots">
-                    <p>Sem horários disponíveis nesta data.</p>
+                    <p>Este colaborador ainda não possui horários disponíveis para esta data.</p>
                     <button className="ag-btn-ghost" onClick={() => setStep("date")}>Escolher outra data</button>
                   </div>
                 )}
@@ -329,7 +329,7 @@ export default function AgendarButton({
                     ? <><div className="ag-spinner" /> Confirmando...</>
                     : "Confirmar agendamento →"}
                 </button>
-                {!dbUser && <p className="ag-login-warn">Faça login para agendar.</p>}
+                {!dbUser && <p className="ag-login-warn">Entre na sua conta para agendar.</p>}
               </>
             )}
 

@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/providers/AuthProvider";
-import { useMyProviderProfile, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
+import { useMyProviderDirect, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
 import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
 import { useWallet } from "@/hooks/useWallet";
 import { useServicesByProvider, useCreateService, useUpdateService, useDeleteService } from "@/hooks/useServices";
@@ -21,17 +21,17 @@ type Colaborador = { id: string | number; name: string; email: string; bio?: str
 // ── Status config (para dashboard de appointments) ────────────────────────────
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-  PENDING_PAYMENT:              { label: "Ag. pagamento",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  EXPIRED:                      { label: "Expirado",        color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-  PENDING:                      { label: "Pendente",        color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  PAID:                         { label: "Pago",            color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CONFIRMED:                    { label: "Confirmado",      color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  IN_PROGRESS:                  { label: "Em andamento",   color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  AWAITING_CLIENT_CONFIRMATION: { label: "Ag. cliente",    color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
-  COMPLETED:                    { label: "Concluído",       color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CANCELLED:                    { label: "Cancelado",       color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  REFUNDED:                     { label: "Reembolsado",    color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
-  DISPUTED:                     { label: "Em disputa",     color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  PENDING_PAYMENT:              { label: "Aguardando pagamento",      color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  EXPIRED:                      { label: "Agendamento expirado",      color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  PENDING:                      { label: "Pendente",                  color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
+  PAID:                         { label: "Pago — confirmar",          color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CONFIRMED:                    { label: "Reunião confirmada",        color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  IN_PROGRESS:                  { label: "Atendimento em andamento",  color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  AWAITING_CLIENT_CONFIRMATION: { label: "Aguardando aprovação",      color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
+  COMPLETED:                    { label: "Atendimento concluído",     color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CANCELLED:                    { label: "Cancelado",                 color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  REFUNDED:                     { label: "Reembolsado",               color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
+  DISPUTED:                     { label: "Em disputa",                color: "#f87171", bg: "rgba(248,113,113,0.12)" },
 };
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
@@ -173,8 +173,8 @@ export default function ColaboradorPerfilPage() {
   const { data: walletData } = useWallet(dbUser?.id ?? "");
   const walletBalance = walletData?.balance ?? 0;
 
-  // Lookup do Provider entity ID pelo nome do usuário autenticado
-  const { data: myProvider, isLoading: providerLoading } = useMyProviderProfile(dbUser?.name ?? "");
+  // Lookup do Provider entity via GET /providers/me
+  const { data: myProvider, isLoading: providerLoading } = useMyProviderDirect();
   const providerId = myProvider?.id ?? "";
 
   // Appointments do provider
@@ -201,11 +201,11 @@ export default function ColaboradorPerfilPage() {
   const [sErr,    setSErr]    = useState("");
 
   // Serviços e reviews reais via API
-  const { data: servicos = [], isLoading: servicosLoading } = useServicesByProvider(id);
-  const { data: reviews = [] } = useReviewsByProvider(id);
+  const { data: servicos = [], isLoading: servicosLoading } = useServicesByProvider(providerId);
+  const { data: reviews = [] } = useReviewsByProvider(providerId);
   const createService = useCreateService();
-  const updateService = useUpdateService(id);
-  const deleteService = useDeleteService(id);
+  const updateService = useUpdateService(providerId);
+  const deleteService = useDeleteService(providerId);
 
   useEffect(() => {
     if (dbUser) {
@@ -232,7 +232,7 @@ export default function ColaboradorPerfilPage() {
     setShowEditServico(s);
     setSTitulo(s.title);
     setSDesc(s.description);
-    setSPreco(String(s.price / 100));
+    setSPreco((s.price / 100).toFixed(2));
     setSDur(String(s.duration));
     setSOk(false); setSErr("");
   }
@@ -244,12 +244,12 @@ export default function ColaboradorPerfilPage() {
     setSErr("");
     if (showEditServico) {
       updateService.mutate(
-        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: parseFloat(sPreco), duration: parseInt(sDur) } },
+        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: Math.round(parseFloat(sPreco) * 100), duration: parseInt(sDur) } },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     } else {
       createService.mutate(
-        { providerId: id, title: sTitulo, description: sDesc, price: parseFloat(sPreco), duration: parseInt(sDur) },
+        { providerId, title: sTitulo, description: sDesc, price: Math.round(parseFloat(sPreco) * 100), duration: parseInt(sDur) },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     }
@@ -413,7 +413,7 @@ export default function ColaboradorPerfilPage() {
                 <div style={{ width: 42, height: 42, background: "rgba(255,255,255,.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👛</div>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.8)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Minha Carteira</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>R$ {(walletBalance / 100).toFixed(2).replace(".", ",")}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>R$ {Number(walletBalance).toFixed(2).replace(".", ",")}</div>
                 </div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.9)", background: "rgba(255,255,255,.15)", padding: "7px 14px", borderRadius: 8, whiteSpace: "nowrap" }}>Ver carteira →</div>

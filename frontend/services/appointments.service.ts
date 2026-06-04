@@ -61,7 +61,7 @@ export const appointmentsService = {
     return data.data;
   },
 
-  // Ciclo de vida (Escrow)
+  // Ciclo de vida — EscrowController usa POST com auth do usuário logado
   confirm: async (id: string): Promise<Appointment> => {
     const { data } = await api.post<{ data: Appointment }>(`/appointments/${id}/confirm`);
     return data.data;

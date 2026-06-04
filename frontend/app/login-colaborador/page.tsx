@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { auth, signInWithEmailAndPassword } from "@/lib/firebase";
 import { api } from "@/lib/api";
 
@@ -27,84 +28,98 @@ const IconEye = ({ show }: { show: boolean }) => (
 );
 
 export default function LoginColaboradorPage() {
+  const router = useRouter();
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [showPw,   setShowPw]   = useState(false);
-  const [remember, setRemember] = useState(false);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("tp_colab_remember");
-    if (saved) { const d = JSON.parse(saved); setEmail(d.email); setPassword(d.password); setRemember(true); }
-  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!email || !password) { setError("Preencha e-mail e senha."); return; }
     setLoading(true);
+
+    // Step 1: Firebase auth
+    let token: string;
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      const token = await cred.user.getIdToken();
-
-      // Sincroniza usuário no banco
-      try {
-        await api.post("/users", {
-          firebaseUid: cred.user.uid,
-          email: cred.user.email,
-          name: cred.user.displayName ?? email.split("@")[0],
-        });
-      } catch { /* 409 = já existe, ok */ }
-
-      // Busca perfil de provider
-      const { data } = await api.get<{ data: { id: string; userId: string } | null }>("/providers/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      let providerId = data.data?.id;
-
-      // Se não tem provider ainda, cria automaticamente
-      if (!providerId) {
-        const userRes = await api.get<any>("/users/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => null);
-        const userId = userRes?.data?.id ?? userRes?.data?.data?.id;
-        if (!userId) {
-          setError("Usuário não encontrado no sistema. Registre-se primeiro.");
-          await auth.signOut();
-          setLoading(false);
-          return;
-        }
-        const created = await api.post<any>("/providers", { userId, categories: [] });
-        providerId = created.data?.id ?? created.data?.data?.id;
-      }
-
-      if (providerId) localStorage.setItem("tp_provider_id", providerId);
-
-      if (!providerId) {
-        setError("Erro ao criar perfil de prestador. Tente novamente.");
-        await auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      if (remember) localStorage.setItem("tp_colab_remember", JSON.stringify({ email, password }));
-      else localStorage.removeItem("tp_colab_remember");
-
-      window.location.href = `/colaborador/${providerId}/perfil`;
+      token = await cred.user.getIdToken();
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";
       if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
         setError("E-mail ou senha incorretos.");
       } else if (code === "auth/too-many-requests") {
         setError("Muitas tentativas. Tente novamente mais tarde.");
+      } else if (code === "auth/invalid-email") {
+        setError("Formato de e-mail inválido.");
       } else {
-        setError("Erro ao entrar. Tente novamente.");
+        setError("Erro ao autenticar. Verifique sua conexão e tente novamente.");
       }
-    } finally {
       setLoading(false);
+      return;
     }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // Step 2: Sync user in DB (ignore 409 = already exists)
+    try {
+      const fbUser = auth.currentUser!;
+      await api.post("/users", {
+        firebaseUid: fbUser.uid,
+        email: fbUser.email,
+        name: fbUser.displayName ?? email.split("@")[0],
+      });
+    } catch { /* 409 ok */ }
+
+    // Step 3: Fetch user and validate role
+    let dbUserId: string;
+    try {
+      const res = await api.get<{ id: string; role: string } | { data: { id: string; role: string } }>("/users/me", { headers });
+      const user = (res.data as { data?: { id: string; role: string } }).data ?? res.data as { id: string; role: string };
+      if (!user?.id) {
+        setError("Usuário não encontrado no sistema.");
+        await auth.signOut();
+        setLoading(false);
+        return;
+      }
+      if (user.role !== "PROVIDER") {
+        setError("Esta conta não possui acesso de colaborador.");
+        await auth.signOut();
+        setLoading(false);
+        return;
+      }
+      dbUserId = user.id;
+    } catch {
+      setError("Não foi possível verificar sua conta. Tente novamente.");
+      await auth.signOut();
+      setLoading(false);
+      return;
+    }
+
+    // Step 4: Fetch provider profile
+    // /providers/me returns { data: { data: { id, ... } } } due to double wrapping
+    // (service returns {data: provider}, global interceptor wraps again in {data: ...})
+    try {
+      const res = await api.get("/providers/me", { headers });
+      const raw = res.data?.data;
+      const provider = raw?.data ?? raw; // handle both single and double wrapping
+      if (!provider?.id) {
+        setError("Perfil de colaborador não encontrado. Entre em contato com o suporte.");
+        await auth.signOut();
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("Não foi possível conectar ao servidor. Tente novamente.");
+      await auth.signOut();
+      setLoading(false);
+      return;
+    }
+
+    // Step 5: Redirect using USER ID (page param is userId)
+    router.push(`/colaborador/${dbUserId}/perfil`);
   }
 
   return (
@@ -204,11 +219,6 @@ export default function LoginColaboradorPage() {
         .lc-toggle-pw { position:absolute; right:10px; background:none; border:none; cursor:pointer; color:#555; padding:4px; display:flex; align-items:center; transition:color .15s; }
         .lc-toggle-pw:hover { color:#aaa; }
 
-        .lc-check-label { display:flex; align-items:center; gap:8px; font-size:13px; color:#777; cursor:pointer; }
-        .lc-checkmark { width:16px; height:16px; border-radius:4px; border:1.5px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .15s; }
-        .lc-checkmark.checked { background:#fd5b01; border-color:#fd5b01; }
-        .lc-checkmark.checked::after { content:''; display:block; width:8px; height:5px; border-left:2px solid #fff; border-bottom:2px solid #fff; transform:rotate(-45deg) translateY(-1px); }
-
         .lc-btn { width:100%; padding:13px; background:#fd5b01; color:#fff; border:none; border-radius:9px; font-family:'Sora',sans-serif; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background .2s,transform .1s,box-shadow .2s; margin-top:1.25rem; box-shadow:0 4px 20px rgba(253,91,1,0.35); }
         .lc-btn:hover { background:#d94d00; box-shadow:0 6px 24px rgba(253,91,1,0.45); }
         .lc-btn:active { transform:scale(0.98); }
@@ -278,16 +288,9 @@ export default function LoginColaboradorPage() {
                 <label className="lc-label">Senha</label>
                 <div className="lc-input-wrap">
                   <IconLock />
-                  <input className="lc-input" type={showPw?"text":"password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+                  <input className="lc-input" type={showPw?"text":"password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
                   <button type="button" className="lc-toggle-pw" onClick={() => setShowPw(p => !p)}><IconEye show={showPw} /></button>
                 </div>
-              </div>
-
-              <div className="lc-field">
-                <label className="lc-check-label" onClick={() => setRemember(p => !p)}>
-                  <span className={`lc-checkmark ${remember?"checked":""}`} />
-                  Manter conectado
-                </label>
               </div>
 
               <button className="lc-btn" type="submit" disabled={loading}>

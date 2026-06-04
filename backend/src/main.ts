@@ -22,10 +22,16 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  const allowedOrigins = (process.env.FRONTEND_URL ?? '*')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   });
 
   app.setGlobalPrefix('api');

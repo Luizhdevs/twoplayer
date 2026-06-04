@@ -28,7 +28,7 @@ function ProviderCard({ provider, featured = false }: { provider: ProviderCard; 
       <div className="tp-card-thumb">
         <Image src={provider.avatarUrl} fill alt={provider.name} className="tp-card-img" sizes="260px" />
         <div className="tp-card-overlay" />
-        <div className="tp-card-price-badge">R$ {provider.price}</div>
+        <div className="tp-card-price-badge">R$ {Number(provider.price).toFixed(2)}</div>
       </div>
       <div className="tp-card-info">
         <p className="tp-card-name">{provider.name}</p>
@@ -233,7 +233,7 @@ export default function HomePage() {
               <h1 className={`tp-hero-name${heroFading ? " fading" : ""}`}>{hero.name}</h1>
               <div className="tp-hero-meta">
                 <span className="tp-hero-rating">⭐ {hero.rating.toFixed(1)}</span>
-                <span className="tp-hero-price">R$ {hero.price} / sessão</span>
+                <span className="tp-hero-price">R$ {Number(hero.price).toFixed(2)} / sessão</span>
               </div>
               <Link href={`/providers/${hero.id}`} className="tp-hero-cta">
                 Ver perfil

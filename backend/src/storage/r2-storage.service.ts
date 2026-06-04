@@ -34,7 +34,10 @@ export class R2StorageService implements IStorageService, OnModuleInit {
         accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
       },
-    });
+      // Cloudflare R2 compatibility: disable automatic checksum headers
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+    } as any);
 
     this.logger.log(`Storage conectado ao bucket "${this.bucket}"`);
   }

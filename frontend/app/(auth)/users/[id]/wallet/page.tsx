@@ -103,7 +103,8 @@ export default function WalletPage() {
   const isColab = dbUser?.role === "PROVIDER";
 
   const { data: walletData, isLoading: walletLoading } = useWallet(id);
-  const saldo = (walletData?.balance ?? 0) / 100;
+  // balance and amounts already come in reais from GET /wallet/:id (backend divides by 100)
+  const saldo = walletData?.balance ?? 0;
   const transactions: WalletTransaction[] = walletData?.transactions ?? [];
 
   const [cartoes, setCartoes] = useState<Cartao[]>([]);
@@ -131,12 +132,13 @@ export default function WalletPage() {
   const [resgateOk,     setResgateOk]     = useState(false);
   const [resgateErro,   setResgateErro]   = useState("");
 
+  // amounts already in reais from the API
   const totalRecargas = transactions
     .filter(t => t.type === "credit" || t.type === "refund")
-    .reduce((a, t) => a + t.amount / 100, 0);
+    .reduce((a, t) => a + t.amount, 0);
   const totalGastos = transactions
     .filter(t => t.type === "debit" || t.type === "withdrawal")
-    .reduce((a, t) => a + t.amount / 100, 0);
+    .reduce((a, t) => a + t.amount, 0);
 
   const txFiltradas = transactions.filter(t => {
     if (abaAtiva === "todos") return true;
@@ -356,7 +358,7 @@ export default function WalletPage() {
                     <span>{new Date(t.createdAt).toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" })}</span>
                   </div>
                   <div className={`wl-tx-valor ${tipo}`}>
-                    {txSinal(t)} R$ {(t.amount / 100).toFixed(2).replace(".",",")}
+                    {txSinal(t)} R$ {Number(t.amount).toFixed(2).replace(".",",")}
                   </div>
                 </div>
               );

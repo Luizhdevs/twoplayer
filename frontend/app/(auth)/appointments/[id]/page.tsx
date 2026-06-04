@@ -10,17 +10,17 @@ import type { AppointmentStatus } from "@/services/appointments.service";
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-  PENDING_PAYMENT:              { label: "Aguardando pagamento", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  EXPIRED:                      { label: "Expirado",            color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-  PENDING:                      { label: "Pendente",            color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  PAID:                         { label: "Pago",                color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CONFIRMED:                    { label: "Confirmado",          color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  IN_PROGRESS:                  { label: "Em andamento",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  AWAITING_CLIENT_CONFIRMATION: { label: "Aguardando sua confirmação", color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
-  COMPLETED:                    { label: "Concluído",           color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CANCELLED:                    { label: "Cancelado",           color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  REFUNDED:                     { label: "Reembolsado",         color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
-  DISPUTED:                     { label: "Em disputa",          color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  PENDING_PAYMENT:              { label: "Aguardando pagamento",              color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  EXPIRED:                      { label: "Agendamento expirado",              color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
+  PENDING:                      { label: "Pendente",                          color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
+  PAID:                         { label: "Aguardando confirmação do colaborador", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CONFIRMED:                    { label: "Reunião confirmada",                color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  IN_PROGRESS:                  { label: "Atendimento em andamento",          color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  AWAITING_CLIENT_CONFIRMATION: { label: "Aguardando sua aprovação",          color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
+  COMPLETED:                    { label: "Atendimento concluído",             color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CANCELLED:                    { label: "Cancelado",                         color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  REFUNDED:                     { label: "Reembolsado",                       color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
+  DISPUTED:                     { label: "Em disputa",                        color: "#f87171", bg: "rgba(248,113,113,0.12)" },
 };
 
 function useMeetingCountdown(scheduledAt: string, durationMin = 60) {

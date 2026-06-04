@@ -15,9 +15,6 @@ export function useHomeProviders() {
   });
 }
 
-// Busca o provider cujo user.name corresponde ao nome informado.
-// Workaround para obter o Provider entity ID a partir do nome do dbUser,
-// já que o backend não expõe GET /providers/me.
 export function useMyProviderProfile(name: string) {
   return useQuery({
     queryKey: [...PROVIDERS_KEY, "my-profile", name],
@@ -32,6 +29,19 @@ export function useMyProviderProfile(name: string) {
       return unique.find(p => p.name === name) ?? null;
     },
     enabled: !!name,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useMyProviderDirect() {
+  return useQuery({
+    queryKey: [...PROVIDERS_KEY, "me", "direct"],
+    queryFn: async (): Promise<{ id: string } | null> => {
+      // /providers/me returns { data: { data: { id, ... } } } (double-wrapped)
+      const { data } = await api.get("/providers/me");
+      const raw = data?.data;
+      return raw?.data ?? raw ?? null;
+    },
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -59,7 +59,7 @@ export async function uploadFile(
 
   const res = await api.patch<{ data: { id: string; url: string } }>(endpoint, form, {
     headers: {
-      "Content-Type": "multipart/form-data",
+      // Let axios set Content-Type automatically with correct multipart boundary
       ...(token && { Authorization: `Bearer ${token}` }),
     },
   });

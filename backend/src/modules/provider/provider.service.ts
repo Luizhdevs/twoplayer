@@ -117,7 +117,7 @@ export class ProviderService {
   }
 
   async addGalleryImage(firebaseUid: string, file: Express.Multer.File) {
-    const provider = await this.repo.findByUserId(firebaseUid);
+    const provider = await this.repo.findByFirebaseUid(firebaseUid);
     if (!provider) throw new NotFoundException('Perfil de provider não encontrado');
 
     const currentCount = await this.mediaRepo.countByOwnerAndCategory(
@@ -141,7 +141,7 @@ export class ProviderService {
   }
 
   async removeGalleryImage(imageId: string, firebaseUid: string) {
-    const provider = await this.repo.findByUserId(firebaseUid);
+    const provider = await this.repo.findByFirebaseUid(firebaseUid);
     if (!provider) throw new NotFoundException('Perfil de provider não encontrado');
 
     const image = provider.images.find((i) => i.id === imageId);

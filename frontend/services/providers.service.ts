@@ -99,7 +99,7 @@ export const providersService = {
     const { data } = await api.post<{ data: { id: string; url: string } }>(
       "/providers/me/gallery",
       form,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      // No manual Content-Type — axios sets multipart/form-data with boundary automatically
     );
     return data.data;
   },
