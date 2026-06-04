@@ -2,11 +2,8 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-
-const MOCK_COLABORADORES = [
-  { id: 1, email: "neymar@twoplayers.com",  password: "Neymar@123", name: "Neymar" },
-  { id: 2, email: "gaules@twoplayers.com",  password: "Gaules@123", name: "Gaules" },
-];
+import { auth, signInWithEmailAndPassword } from "@/lib/firebase";
+import { api } from "@/lib/api";
 
 const IconEmail = () => (
   <svg className="lc-icon" viewBox="0 0 20 20" fill="none">
@@ -42,21 +39,52 @@ export default function LoginColaboradorPage() {
     if (saved) { const d = JSON.parse(saved); setEmail(d.email); setPassword(d.password); setRemember(true); }
   }, []);
 
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault(); setError("");
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
     if (!email || !password) { setError("Preencha e-mail e senha."); return; }
     setLoading(true);
-    setTimeout(() => {
-      const colab = MOCK_COLABORADORES.find(c => c.email===email && c.password===password);
-      if (colab) {
-        if (remember) localStorage.setItem("tp_colab_remember", JSON.stringify({email,password}));
-        else localStorage.removeItem("tp_colab_remember");
-        window.location.href = `/colaborador/${colab.id}/perfil`;
-      } else {
-        setError("E-mail ou senha incorretos.");
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const token = await cred.user.getIdToken();
+
+      // Sincroniza usuário no banco
+      try {
+        await api.post("/users", {
+          firebaseUid: cred.user.uid,
+          email: cred.user.email,
+          name: cred.user.displayName ?? email.split("@")[0],
+        });
+      } catch { /* 409 = já existe, ok */ }
+
+      // Busca perfil de provider
+      const { data } = await api.get<{ data: { id: string } | null }>("/providers/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!data.data) {
+        setError("Conta não encontrada como prestador. Crie seu perfil primeiro.");
+        await auth.signOut();
+        setLoading(false);
+        return;
       }
+
+      if (remember) localStorage.setItem("tp_colab_remember", JSON.stringify({ email, password }));
+      else localStorage.removeItem("tp_colab_remember");
+
+      window.location.href = `/colaborador/${data.data.id}/perfil`;
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+        setError("E-mail ou senha incorretos.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Muitas tentativas. Tente novamente mais tarde.");
+      } else {
+        setError("Erro ao entrar. Tente novamente.");
+      }
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   }
 
   return (
@@ -222,7 +250,7 @@ export default function LoginColaboradorPage() {
                 <label className="lc-label">E-mail</label>
                 <div className="lc-input-wrap">
                   <IconEmail />
-                  <input className="lc-input" type="email" placeholder="seu@twoplayers.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                  <input className="lc-input" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
                 </div>
               </div>
 

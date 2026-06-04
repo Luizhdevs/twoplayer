@@ -68,6 +68,29 @@ export class ProviderService {
     };
   }
 
+  async getMyProfile(firebaseUid: string) {
+    const provider = await this.repo.findByFirebaseUid(firebaseUid);
+    if (!provider) return { data: null };
+    return {
+      data: {
+        id: provider.id,
+        userId: provider.userId,
+        categories: provider.categories,
+        isVerified: provider.isVerified,
+        rating: Number(provider.rating),
+        totalReviews: provider.totalReviews,
+        user: { name: provider.user.name, email: provider.user.email, avatarUrl: provider.user.avatarUrl },
+        services: provider.services.map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description ?? '',
+          price: s.price,
+          duration: s.duration,
+        })),
+      },
+    };
+  }
+
   async create(dto: CreateProviderDto) {
     return this.repo.create(dto.userId, dto.categories);
   }

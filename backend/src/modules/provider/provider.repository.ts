@@ -41,6 +41,17 @@ export class ProviderRepository {
     });
   }
 
+  findByFirebaseUid(firebaseUid: string) {
+    return this.prisma.provider.findFirst({
+      where: { user: { firebaseUid }, deletedAt: null },
+      include: {
+        user: true,
+        services: { where: { deletedAt: null, isActive: true } },
+        images: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+  }
+
   create(userId: string, categories: string[]) {
     return this.prisma.provider.create({
       data: { userId, categories },

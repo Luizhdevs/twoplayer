@@ -30,6 +30,11 @@ export class ProviderController {
     return this.providerService.getHome();
   }
 
+  @Get('me')
+  getMyProfile(@CurrentUser() user: DecodedIdToken) {
+    return this.providerService.getMyProfile(user.uid);
+  }
+
   @Public()
   @Get(':id')
   getPublicProfile(@Param('id') id: string) {

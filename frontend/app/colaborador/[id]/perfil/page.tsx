@@ -9,18 +9,15 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useMyProviderProfile, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
 import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
 import { useWallet } from "@/hooks/useWallet";
+import { useServicesByProvider, useCreateService, useUpdateService, useDeleteService } from "@/hooks/useServices";
+import type { Service } from "@/services/services.service";
 import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
 
-// ── Tipos locais (perfil mock ainda em uso para serviços/galeria) ──────────────
+// ── Tipos locais ──────────────────────────────────────────────────────────────
 
-type Servico    = { id: number; titulo: string; descricao: string; preco: number; duracao: number };
 type Comentario = { id: number; usuario: string; servico: string; nota: number; texto: string; data: string };
 type Colaborador= { id: string | number; name: string; email: string; bio?: string; avatarUrl?: string };
 
-const MOCK_SERVICOS: Servico[] = [
-  { id: 1, titulo: "Bate-papo",    descricao: "Sessão de 30min",  preco: 1000, duracao: 30 },
-  { id: 2, titulo: "Partida de CS", descricao: "Sessão de 1h",   preco: 2000, duracao: 60 },
-];
 const MOCK_COMENTARIOS: Comentario[] = [
   { id: 1, usuario: "Ryan Charles",    servico: "Bate-papo",    nota: 5, texto: "Nunca imaginei que um dia pudesse conversar com o meu ídolo!", data: "2026-04-18" },
   { id: 2, usuario: "Deyvison Dênnis", servico: "Partida de CS", nota: 4, texto: "Craque dentro e fora dos gramados!", data: "2026-04-10" },
@@ -196,16 +193,22 @@ export default function ColaboradorPerfilPage() {
   const [uploadErr, setUploadErr]     = useState("");
 
   const [colab, setColab]               = useState<Colaborador | null>(null);
-  const [servicos, setServicos]         = useState<Servico[]>(MOCK_SERVICOS);
   const [showIndisponivel, setShowIndisp] = useState(false);
   const [showAddServico, setShowAddServico] = useState(false);
-  const [showEditServico, setShowEditServico] = useState<Servico | null>(null);
+  const [showEditServico, setShowEditServico] = useState<Service | null>(null);
 
   const [sTitulo, setSTitulo] = useState("");
   const [sDesc,   setSDesc]   = useState("");
   const [sPreco,  setSPreco]  = useState("");
   const [sDur,    setSDur]    = useState("");
   const [sOk,     setSOk]     = useState(false);
+  const [sErr,    setSErr]    = useState("");
+
+  // Serviços reais via API
+  const { data: servicos = [], isLoading: servicosLoading } = useServicesByProvider(id);
+  const createService = useCreateService();
+  const updateService = useUpdateService(id);
+  const deleteService = useDeleteService(id);
 
   useEffect(() => {
     if (dbUser) {
@@ -228,24 +231,39 @@ export default function ColaboradorPerfilPage() {
     }
   }, [dbUser, id, authLoading]);
 
-  function abrirEdit(s: Servico) {
-    setShowEditServico(s); setSTitulo(s.titulo); setSDesc(s.descricao);
-    setSPreco(String(s.preco)); setSDur(String(s.duracao)); setSOk(false);
+  function abrirEdit(s: Service) {
+    setShowEditServico(s);
+    setSTitulo(s.title);
+    setSDesc(s.description);
+    setSPreco(String(s.price / 100));
+    setSDur(String(s.duration));
+    setSOk(false); setSErr("");
   }
-  function abrirAdd() { setShowAddServico(true); setSTitulo(""); setSDesc(""); setSPreco(""); setSDur(""); setSOk(false); }
+  function abrirAdd() {
+    setShowAddServico(true); setSTitulo(""); setSDesc(""); setSPreco(""); setSDur(""); setSOk(false); setSErr("");
+  }
   function salvarServico() {
     if (!sTitulo || !sDesc || !sPreco || !sDur) return;
+    setSErr("");
     if (showEditServico) {
-      setServicos(prev => prev.map(s => s.id === showEditServico.id
-        ? { ...s, titulo: sTitulo, descricao: sDesc, preco: parseFloat(sPreco), duracao: parseInt(sDur) } : s));
+      updateService.mutate(
+        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: parseFloat(sPreco), duration: parseInt(sDur) } },
+        { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
+      );
     } else {
-      setServicos(prev => [...prev, { id: Date.now(), titulo: sTitulo, descricao: sDesc, preco: parseFloat(sPreco), duracao: parseInt(sDur) }]);
+      createService.mutate(
+        { providerId: id, title: sTitulo, description: sDesc, price: parseFloat(sPreco), duration: parseInt(sDur) },
+        { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
+      );
     }
-    setSOk(true);
   }
   function fecharServico() {
-    setShowAddServico(false); setShowEditServico(null); setSOk(false);
+    setShowAddServico(false); setShowEditServico(null); setSOk(false); setSErr("");
     setSTitulo(""); setSDesc(""); setSPreco(""); setSDur("");
+  }
+  function handleDeleteServico(serviceId: string) {
+    if (!confirm("Remover este serviço?")) return;
+    deleteService.mutate(serviceId);
   }
   function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -470,18 +488,27 @@ export default function ColaboradorPerfilPage() {
               <div className="cp-section-title" style={{ marginBottom: 0 }}>Meus Serviços</div>
               <button className="cp-btn-primary" onClick={abrirAdd}>+ Adicionar serviço</button>
             </div>
+            {servicosLoading && <p style={{ fontSize: 13, color: "#666" }}>Carregando serviços...</p>}
+            {!servicosLoading && servicos.length === 0 && (
+              <p style={{ fontSize: 13, color: "#555", textAlign: "center", padding: "1rem 0" }}>
+                Nenhum serviço cadastrado. Adicione seu primeiro serviço!
+              </p>
+            )}
             {servicos.map(s => (
               <div key={s.id} className="cp-servico">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <p className="cp-servico-titulo">{s.titulo}</p>
-                    <p className="cp-servico-desc">{s.descricao}</p>
+                    <p className="cp-servico-titulo">{s.title}</p>
+                    <p className="cp-servico-desc">{s.description}</p>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span className="cp-preco">R$ {s.preco}</span>
-                      <span className="cp-dur">⏱ {s.duracao} min</span>
+                      <span className="cp-preco">R$ {(s.price / 100).toFixed(2)}</span>
+                      <span className="cp-dur">⏱ {s.duration} min</span>
                     </div>
                   </div>
-                  <button className="cp-btn-secondary" onClick={() => abrirEdit(s)}>✏️ Alterar</button>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button className="cp-btn-secondary" onClick={() => abrirEdit(s)}>✏️ Alterar</button>
+                    <button className="cp-btn-secondary" style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.3)" }} onClick={() => handleDeleteServico(s.id)}>🗑</button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -610,11 +637,12 @@ export default function ColaboradorPerfilPage() {
                 <label className="cp-label">Descrição</label>
                 <input className="cp-input" placeholder="Ex: Sessão de 30min" value={sDesc} onChange={e => setSDesc(e.target.value)} />
                 <div className="cp-row">
-                  <div><label className="cp-label">Preço (R$)</label><input className="cp-input" type="number" placeholder="1000" value={sPreco} onChange={e => setSPreco(e.target.value)} /></div>
+                  <div><label className="cp-label">Preço (R$)</label><input className="cp-input" type="number" placeholder="50.00" step="0.01" value={sPreco} onChange={e => setSPreco(e.target.value)} /></div>
                   <div><label className="cp-label">Duração (min)</label><input className="cp-input" type="number" placeholder="30" value={sDur} onChange={e => setSDur(e.target.value)} /></div>
                 </div>
-                <button className="modal-confirm" disabled={!sTitulo || !sDesc || !sPreco || !sDur} onClick={salvarServico}>
-                  {showEditServico ? "Salvar alterações →" : "Adicionar serviço →"}
+                {sErr && <p style={{ fontSize: 12, color: "#f87171", marginTop: 8 }}>{sErr}</p>}
+                <button className="modal-confirm" disabled={!sTitulo || !sDesc || !sPreco || !sDur || createService.isPending || updateService.isPending} onClick={salvarServico}>
+                  {(createService.isPending || updateService.isPending) ? "Salvando..." : showEditServico ? "Salvar alterações →" : "Adicionar serviço →"}
                 </button>
               </>
             )}
