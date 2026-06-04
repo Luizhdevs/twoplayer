@@ -9,11 +9,13 @@ export type UserProfile = {
   bio:          string | null;
   wallet:       { balance: number } | null;
   appointments: {
-    id:       string;
-    service:  string;
-    provider: string;
-    date:     string;
-    status:   string;
+    id:          string;
+    service:     string;
+    provider:    string;
+    scheduledAt: string;
+    amount:      number;
+    status:      string;
+    meetingUrl:  string | null;
   }[];
 };
 

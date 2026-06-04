@@ -62,14 +62,16 @@ export class UserService {
       avatarUrl: user.avatarUrl,
       bio: user.bio,
       wallet: user.wallet
-        ? { balance: user.wallet.balance / 100 }
+        ? { balance: user.wallet.balance }
         : null,
       appointments: user.appointments.map((a) => ({
         id: a.id,
-        service: a.service.title,
-        provider: (a.provider as any).user?.name ?? '',
-        date: a.scheduledAt.toISOString().split('T')[0],
-        status: this.translateStatus(a.status),
+        service: a.service?.title ?? 'Serviço',
+        provider: (a.provider as any)?.user?.name ?? '',
+        scheduledAt: a.scheduledAt.toISOString(),
+        amount: a.amount,
+        status: a.status,
+        meetingUrl: a.meetingUrl ?? null,
       })),
     };
   }
@@ -92,13 +94,4 @@ export class UserService {
     return this.repo.update(user.id, { avatarUrl: url } as any);
   }
 
-  private translateStatus(status: string): string {
-    const map: Record<string, string> = {
-      PENDING: 'Pendente',
-      CONFIRMED: 'Agendado',
-      COMPLETED: 'Concluído',
-      CANCELLED: 'Cancelado',
-    };
-    return map[status] ?? status;
-  }
 }

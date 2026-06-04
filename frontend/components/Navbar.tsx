@@ -88,7 +88,7 @@ export default function Navbar() {
               <Link href="/appointments" className="tp-nav-link">Agendamentos</Link>
             )}
             {dbUser && (
-              <Link href={`/users/${dbUser.id}/notifications`} className="tp-nav-link">
+              <Link href="/notifications" className="tp-nav-link">
                 🔔
                 {unread > 0 && (
                   <span className="tp-notif-badge">{unread > 9 ? "9+" : unread}</span>
