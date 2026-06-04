@@ -57,10 +57,14 @@ export const providersService = {
     return data.data;
   },
 
-  getAvailableSlots: async (providerId: string, date: string): Promise<AvailableSlot[]> => {
+  getAvailableSlots: async (
+    providerId: string,
+    date: string,
+    serviceDuration?: number,
+  ): Promise<AvailableSlot[]> => {
     const { data } = await api.get<{ data: AvailableSlot[] }>(
       `/providers/${providerId}/available-slots`,
-      { params: { date } },
+      { params: { date, ...(serviceDuration ? { serviceDuration } : {}) } },
     );
     return data.data;
   },

@@ -1,78 +1,122 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAvailableSlots } from "@/hooks/useProviders";
 import { useCreateAppointment } from "@/hooks/useAppointments";
 
+type Step = "date" | "time" | "summary" | "success";
+
 type Props = {
-  providerId:    string;
-  serviceId:     string;
-  serviceTitle?: string;
-  servicePrice?: number;
+  providerId:      string;
+  providerName?:   string;
+  serviceId:       string;
+  serviceTitle?:   string;
+  servicePrice?:   number;
+  serviceDuration?: number;
 };
+
+// Converte slot UTC "HH:mm" + dateStr para horário local do navegador
+function utcSlotToLocal(dateStr: string, utcTime: string): string {
+  const dt = new Date(`${dateStr}T${utcTime}:00.000Z`);
+  return dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Formata data para exibição local
+function formatDateLocal(dateStr: string): string {
+  const dt = new Date(`${dateStr}T12:00:00.000Z`);
+  return dt.toLocaleDateString("pt-BR", {
+    weekday: "long", day: "2-digit", month: "long", year: "numeric",
+  });
+}
+
+// Retorna a data de hoje no fuso do usuário como string YYYY-MM-DD
+function todayLocal(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export default function AgendarButton({
   providerId,
+  providerName,
   serviceId,
   serviceTitle,
   servicePrice,
+  serviceDuration,
 }: Props) {
   const { dbUser } = useAuth();
+  const router = useRouter();
 
-  const [showModal,    setShowModal]    = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [step, setStep] = useState<Step>("date");
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [erroData,     setErroData]     = useState("");
+  const [selectedSlot, setSelectedSlot] = useState(""); // UTC slot "HH:mm"
+  const [erroData, setErroData] = useState("");
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
 
-  // Slots reais da API (só ativa quando data selecionada)
   const {
     data:      slots = [],
     isLoading: slotsLoading,
     isFetching: slotsFetching,
-  } = useAvailableSlots(providerId, selectedDate);
+  } = useAvailableSlots(providerId, selectedDate, serviceDuration);
 
-  // Mutation de criação
   const createAppt = useCreateAppointment();
 
-  function handleDataChange(value: string) {
+  // Label do horário convertido para local
+  const localTime = useMemo(
+    () => selectedSlot ? utcSlotToLocal(selectedDate, selectedSlot) : "",
+    [selectedDate, selectedSlot],
+  );
+
+  // scheduledAt em UTC para enviar ao backend
+  const scheduledAtUTC = selectedDate && selectedSlot
+    ? `${selectedDate}T${selectedSlot}:00.000Z`
+    : "";
+
+  // Data e hora formatadas para exibição
+  const formattedDate = selectedDate ? formatDateLocal(selectedDate) : "";
+
+  function handleDateChange(value: string) {
     if (value < today) {
       setErroData("Não é possível agendar em datas passadas.");
-      setSelectedDate("");
-      setSelectedTime("");
       return;
     }
     setErroData("");
     setSelectedDate(value);
-    setSelectedTime("");
+    setSelectedSlot("");
+    if (value) setStep("time");
   }
 
-  function handleFinalizar() {
-    if (!selectedDate || !selectedTime || !dbUser) return;
-    // Slots do backend são UTC HH:mm → scheduledAt em UTC
-    const scheduledAt = `${selectedDate}T${selectedTime}:00.000Z`;
-    createAppt.mutate({ userId: dbUser.id, serviceId, providerId, scheduledAt });
+  function handleSelectSlot(slot: string) {
+    setSelectedSlot(slot);
+    setStep("summary");
+  }
+
+  function handleConfirm() {
+    if (!scheduledAtUTC || !dbUser) return;
+    createAppt.mutate(
+      { userId: dbUser.id, serviceId, providerId, scheduledAt: scheduledAtUTC },
+      {
+        onSuccess: () => setStep("success"),
+      },
+    );
   }
 
   function handleFechar() {
     setShowModal(false);
+    setStep("date");
     setSelectedDate("");
-    setSelectedTime("");
+    setSelectedSlot("");
     setErroData("");
     createAppt.reset();
   }
 
-  const confirmed = createAppt.isSuccess;
-  const apptErr   = createAppt.error?.message;
-  const loading   = slotsLoading || slotsFetching;
-
-  const formattedDate = selectedDate
-    ? new Date(selectedDate + "T00:00:00.000Z").toLocaleDateString("pt-BR", {
-        weekday: "long", day: "2-digit", month: "long", timeZone: "UTC",
-      })
-    : "";
+  const loading = slotsLoading || slotsFetching;
 
   return (
     <>
@@ -82,177 +126,243 @@ export default function AgendarButton({
         @keyframes ag-popIn  { from{opacity:0;transform:scale(0.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes ag-spin   { to{transform:rotate(360deg)} }
 
-        .ag-btn { padding:10px 20px; background:#fd5b01; color:#fff; border:none; border-radius:8px; font-family:'Sora',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(253,91,1,0.3); transition:background .2s,transform .1s; display:flex; align-items:center; gap:6px; }
-        .ag-btn:hover  { background:#d94d00; box-shadow:0 6px 16px rgba(253,91,1,0.4); }
+        .ag-btn { padding:10px 20px; background:#fd5b01; color:#fff; border:none; border-radius:8px; font-family:'Sora',sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(253,91,1,0.3); transition:background .2s,transform .1s; display:inline-flex; align-items:center; gap:6px; }
+        .ag-btn:hover  { background:#d94d00; }
         .ag-btn:active { transform:scale(0.97); }
 
         .ag-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:600; display:flex; align-items:center; justify-content:center; padding:1rem; animation:ag-fadeIn 0.2s ease; }
-        .ag-modal { background:#1a1a1a; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:2rem; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; position:relative; box-shadow:0 24px 64px rgba(0,0,0,0.6); animation:ag-popIn 0.25s ease; font-family:'Sora',sans-serif; }
+        .ag-modal { background:#161616; border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:1.75rem; width:100%; max-width:440px; max-height:92vh; overflow-y:auto; position:relative; box-shadow:0 24px 64px rgba(0,0,0,0.7); animation:ag-popIn 0.25s ease; font-family:'Sora',sans-serif; }
         .ag-close { position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.08); border:none; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:14px; color:#aaa; transition:all .15s; }
         .ag-close:hover { background:#fd5b01; color:#fff; }
 
-        .ag-title    { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.02em; margin-bottom:4px; }
-        .ag-subtitle { font-size:13px; color:#777; margin-bottom:1.5rem; }
-        .ag-label    { font-size:11px; font-weight:700; color:#777; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; display:block; }
+        /* Steps */
+        .ag-steps { display:flex; align-items:center; gap:0; margin-bottom:1.5rem; }
+        .ag-step { flex:1; height:3px; background:rgba(255,255,255,0.1); border-radius:2px; transition:background 0.3s; }
+        .ag-step.done { background:#fd5b01; }
+        .ag-step.active { background:rgba(253,91,1,0.5); }
+        .ag-step-gap { width:4px; }
 
-        .ag-input-date { width:100%; padding:11px 14px; background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.1); border-radius:10px; font-family:'Sora',sans-serif; font-size:13px; color:#fff; outline:none; cursor:pointer; transition:border-color .2s,box-shadow .2s; margin-bottom:4px; color-scheme:dark; }
+        .ag-label { font-size:11px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; display:block; }
+        .ag-title  { font-size:17px; font-weight:700; color:#fff; letter-spacing:-0.02em; margin-bottom:4px; }
+        .ag-subtitle { font-size:13px; color:#666; margin-bottom:1.5rem; }
+
+        .ag-input-date { width:100%; padding:11px 14px; background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.1); border-radius:10px; font-family:'Sora',sans-serif; font-size:13px; color:#fff; outline:none; cursor:pointer; transition:border-color .2s; color-scheme:dark; margin-bottom:4px; }
         .ag-input-date:focus { border-color:#fd5b01; box-shadow:0 0 0 3px rgba(253,91,1,0.12); }
-        .ag-input-date.erro  { border-color:#f87171; }
+        .ag-input-date.erro { border-color:#f87171; }
+        .ag-erro { font-size:11px; color:#f87171; margin-top:4px; }
 
-        .ag-erro-msg { font-size:11px; color:#f87171; margin-bottom:1rem; background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:8px; padding:8px 12px; }
-
-        .ag-slots-loading { display:flex; align-items:center; justify-content:center; gap:8px; padding:1.25rem 0; color:#666; font-size:13px; }
+        .ag-slots-loading { display:flex; align-items:center; justify-content:center; gap:8px; padding:1.5rem 0; color:#666; font-size:13px; }
         .ag-spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.1); border-top-color:#fd5b01; border-radius:50%; animation:ag-spin 0.7s linear infinite; flex-shrink:0; }
-        .ag-no-slots { text-align:center; padding:1.25rem 0; color:#f87171; font-size:13px; }
+        .ag-no-slots { text-align:center; padding:1.5rem 0; color:#666; font-size:13px; }
 
-        .ag-times-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:0.75rem 0 1.5rem; }
-        .ag-time-btn  { padding:9px 4px; background:rgba(255,255,255,0.05); border:1.5px solid rgba(255,255,255,0.08); border-radius:8px; font-family:'Sora',sans-serif; font-size:12px; font-weight:600; color:#ccc; cursor:pointer; transition:all .15s; text-align:center; }
-        .ag-time-btn:hover { background:rgba(253,91,1,0.12); border-color:rgba(253,91,1,0.4); color:#fd5b01; }
-        .ag-time-btn.selected { background:#fd5b01; border-color:#fd5b01; color:#fff; box-shadow:0 2px 8px rgba(253,91,1,0.3); }
+        .ag-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0.75rem 0 1.25rem; }
+        .ag-slot { padding:10px 4px; background:rgba(255,255,255,0.05); border:1.5px solid rgba(255,255,255,0.08); border-radius:9px; font-family:'Sora',sans-serif; font-size:13px; font-weight:600; color:#ccc; cursor:pointer; transition:all .15s; text-align:center; }
+        .ag-slot:hover { background:rgba(253,91,1,0.12); border-color:rgba(253,91,1,0.4); color:#fd5b01; }
+        .ag-slot.selected { background:#fd5b01; border-color:#fd5b01; color:#fff; }
 
-        .ag-summary { background:rgba(253,91,1,0.08); border:1px solid rgba(253,91,1,0.15); border-radius:10px; padding:12px 14px; margin-bottom:1.25rem; font-size:13px; color:#ccc; display:flex; flex-direction:column; gap:4px; }
-        .ag-summary strong { color:#fd5b01; }
+        .ag-summary-box { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.25rem; }
+        .ag-summary-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:13px; }
+        .ag-summary-row:last-child { border-bottom:none; padding-bottom:0; }
+        .ag-summary-label { color:#666; }
+        .ag-summary-value { color:#e0e0e0; font-weight:600; text-align:right; }
+        .ag-summary-price { color:#fd5b01; font-size:18px; font-weight:800; }
 
-        .ag-finalizar { width:100%; padding:12px; background:#fd5b01; color:#fff; border:none; border-radius:10px; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 12px rgba(253,91,1,0.3); transition:background .2s,transform .1s; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; }
-        .ag-finalizar:hover:not(:disabled) { background:#d94d00; }
-        .ag-finalizar:active:not(:disabled) { transform:scale(0.98); }
-        .ag-finalizar:disabled { opacity:.35; cursor:not-allowed; box-shadow:none; }
+        .ag-tz-note { font-size:11px; color:#555; text-align:center; margin-bottom:1rem; }
 
-        .ag-success { text-align:center; padding:1rem 0; }
+        .ag-btn-primary { width:100%; padding:13px; background:#fd5b01; color:#fff; border:none; border-radius:10px; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; cursor:pointer; box-shadow:0 4px 12px rgba(253,91,1,0.3); transition:background .2s,transform .1s; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; }
+        .ag-btn-primary:hover:not(:disabled) { background:#d94d00; }
+        .ag-btn-primary:active:not(:disabled) { transform:scale(0.98); }
+        .ag-btn-primary:disabled { opacity:.35; cursor:not-allowed; box-shadow:none; }
+
+        .ag-btn-ghost { width:100%; padding:11px; background:transparent; border:1.5px solid rgba(255,255,255,0.12); border-radius:10px; color:#888; font-family:'Sora',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; margin-top:8px; }
+        .ag-btn-ghost:hover { border-color:rgba(255,255,255,0.25); color:#ccc; }
+
+        .ag-back { background:none; border:none; color:#fd5b01; font-family:'Sora',sans-serif; font-size:12px; font-weight:600; cursor:pointer; padding:0 0 1rem; display:flex; align-items:center; gap:4px; }
+
+        .ag-success { text-align:center; padding:0.5rem 0; }
         .ag-success-icon { font-size:48px; margin-bottom:12px; }
-        .ag-success h3  { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.02em; margin-bottom:8px; }
-        .ag-success p   { font-size:13px; color:#888; line-height:1.6; margin-bottom:1.5rem; }
-        .ag-success-detail { background:rgba(253,91,1,0.08); border:1px solid rgba(253,91,1,0.15); border-radius:10px; padding:12px 16px; margin-bottom:1rem; font-size:13px; color:#ccc; display:flex; flex-direction:column; gap:6px; }
-        .ag-success-detail span  { display:flex; align-items:center; gap:8px; }
-        .ag-success-detail strong { color:#fd5b01; }
+        .ag-success h3 { font-size:18px; font-weight:700; color:#fff; letter-spacing:-0.02em; margin-bottom:8px; }
+        .ag-success p  { font-size:13px; color:#888; line-height:1.6; margin-bottom:1.25rem; }
+        .ag-expiry-note { font-size:12px; color:#f59e0b; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:8px; padding:8px 12px; margin-bottom:1.25rem; }
+
         .ag-login-warn { font-size:11px; color:#f87171; text-align:center; margin-top:8px; }
       `}</style>
 
-      <button className="ag-btn" onClick={() => setShowModal(true)}>📅 Agendar</button>
+      <button className="ag-btn" onClick={() => { setShowModal(true); setStep("date"); }}>
+        📅 Agendar
+      </button>
 
       {showModal && (
         <div className="ag-overlay" onClick={handleFechar}>
           <div className="ag-modal" onClick={e => e.stopPropagation()}>
             <button className="ag-close" onClick={handleFechar}>✕</button>
 
-            {/* ── SUCESSO ── */}
-            {confirmed ? (
-              <div className="ag-success">
-                <div className="ag-success-icon">✅</div>
-                <h3>Agendamento criado!</h3>
-                <p>Seu horário foi reservado com sucesso. Acompanhe o status nos seus agendamentos.</p>
-                <div className="ag-success-detail">
-                  <span>📅 <span>Data: <strong>{formattedDate}</strong></span></span>
-                  <span>⏰ <span>Horário: <strong>{selectedTime} (UTC)</strong></span></span>
-                  {serviceTitle && (
-                    <span>🎯 <span>Serviço: <strong>{serviceTitle}</strong></span></span>
-                  )}
-                </div>
-                {createAppt.data?.id && (
-                  <a href={`/checkout/${createAppt.data.id}`} className="ag-finalizar" style={{ marginBottom: 8 }}>
-                    🔒 Pagar agora →
-                  </a>
-                )}
-                <a href="/appointments" className="ag-finalizar" style={{ marginBottom: 8, background: "rgba(255,255,255,0.08)", boxShadow: "none" }}>
-                  Ver meus agendamentos
-                </a>
-                <button className="ag-finalizar" onClick={handleFechar} style={{ background: "rgba(255,255,255,0.08)", boxShadow: "none" }}>
-                  Fechar
-                </button>
+            {/* PROGRESS STEPS */}
+            {step !== "success" && (
+              <div className="ag-steps">
+                <div className={`ag-step ${step !== "date" ? "done" : "active"}`} />
+                <div className="ag-step-gap" />
+                <div className={`ag-step ${step === "summary" ? "done" : step === "time" ? "active" : ""}`} />
+                <div className="ag-step-gap" />
+                <div className={`ag-step ${step === "summary" ? "active" : ""}`} />
               </div>
-            ) : (
-              /* ── FORMULÁRIO ── */
-              <>
-                <p className="ag-title">📅 Agendar horário</p>
-                <p className="ag-subtitle">
-                  {serviceTitle
-                    ? `${serviceTitle}${servicePrice != null ? ` · R$ ${servicePrice.toFixed(2)}` : ""}`
-                    : "Escolha uma data e horário disponível"}
-                </p>
+            )}
 
-                {/* DATA */}
-                <label className="ag-label">1. Escolha a data</label>
+            {/* STEP 1: DATA */}
+            {step === "date" && (
+              <>
+                <p className="ag-title">📅 Escolha a data</p>
+                <p className="ag-subtitle">
+                  {serviceTitle ? `${serviceTitle}${servicePrice != null ? ` · R$ ${servicePrice.toFixed(2)}` : ""}` : "Selecione uma data disponível"}
+                </p>
+                <label className="ag-label">Data do atendimento</label>
                 <input
                   className={`ag-input-date${erroData ? " erro" : ""}`}
                   type="date"
                   min={today}
                   value={selectedDate}
-                  onChange={e => handleDataChange(e.target.value)}
+                  onChange={e => handleDateChange(e.target.value)}
                 />
-                {erroData && <div className="ag-erro-msg">⚠️ {erroData}</div>}
+                {erroData && <p className="ag-erro">⚠️ {erroData}</p>}
+                {!dbUser && <p className="ag-login-warn">Faça login para agendar.</p>}
+              </>
+            )}
 
-                {/* HORÁRIOS */}
-                <label
-                  className="ag-label"
-                  style={{ opacity: selectedDate ? 1 : 0.4, marginTop: ".75rem" }}
-                >
-                  2. Escolha o horário
-                  {!selectedDate && (
-                    <span style={{ fontSize: 10, fontWeight: 400, textTransform: "none" }}>
-                      {" "}(escolha a data primeiro)
-                    </span>
-                  )}
-                </label>
+            {/* STEP 2: HORÁRIOS */}
+            {step === "time" && (
+              <>
+                <button className="ag-back" onClick={() => setStep("date")}>← Alterar data</button>
+                <p className="ag-title">⏰ Escolha o horário</p>
+                <p className="ag-subtitle" style={{ textTransform: "capitalize" }}>{formattedDate}</p>
 
-                {selectedDate && loading && (
+                {loading && (
                   <div className="ag-slots-loading">
                     <div className="ag-spinner" />
                     Verificando disponibilidade...
                   </div>
                 )}
 
-                {selectedDate && !loading && slots.length === 0 && (
+                {!loading && slots.length === 0 && (
                   <div className="ag-no-slots">
-                    Sem horários disponíveis nesta data.
+                    <p>Sem horários disponíveis nesta data.</p>
+                    <button className="ag-btn-ghost" onClick={() => setStep("date")}>Escolher outra data</button>
                   </div>
                 )}
 
-                {selectedDate && !loading && slots.length > 0 && (
-                  <div className="ag-times-grid">
-                    {slots.map(slot => (
-                      <button
-                        key={slot}
-                        className={`ag-time-btn${selectedTime === slot ? " selected" : ""}`}
-                        onClick={() => setSelectedTime(slot)}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
+                {!loading && slots.length > 0 && (
+                  <>
+                    <p className="ag-tz-note">
+                      Horários no seu fuso local ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                    </p>
+                    <div className="ag-grid">
+                      {slots.map(slot => (
+                        <button
+                          key={slot}
+                          className={`ag-slot${selectedSlot === slot ? " selected" : ""}`}
+                          onClick={() => handleSelectSlot(slot)}
+                        >
+                          {utcSlotToLocal(selectedDate, slot)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
+              </>
+            )}
 
-                {/* ERRO DE CRIAÇÃO */}
-                {apptErr && (
-                  <div className="ag-erro-msg" style={{ marginTop: ".5rem" }}>⚠️ {apptErr}</div>
-                )}
+            {/* STEP 3: RESUMO */}
+            {step === "summary" && (
+              <>
+                <button className="ag-back" onClick={() => setStep("time")}>← Alterar horário</button>
+                <p className="ag-title">✅ Confirmar agendamento</p>
+                <p className="ag-subtitle">Revise os detalhes antes de confirmar</p>
 
-                {/* RESUMO */}
-                {selectedDate && selectedTime && (
-                  <div className="ag-summary">
-                    <span>📅 <strong>{formattedDate}</strong></span>
-                    <span>⏰ <strong>{selectedTime} (UTC)</strong></span>
-                    {servicePrice != null && (
-                      <span>💰 <strong>R$ {servicePrice.toFixed(2)}</strong></span>
-                    )}
+                <div className="ag-summary-box">
+                  {providerName && (
+                    <div className="ag-summary-row">
+                      <span className="ag-summary-label">Prestador</span>
+                      <span className="ag-summary-value">{providerName}</span>
+                    </div>
+                  )}
+                  {serviceTitle && (
+                    <div className="ag-summary-row">
+                      <span className="ag-summary-label">Serviço</span>
+                      <span className="ag-summary-value">{serviceTitle}</span>
+                    </div>
+                  )}
+                  <div className="ag-summary-row">
+                    <span className="ag-summary-label">Data</span>
+                    <span className="ag-summary-value" style={{ textTransform: "capitalize", maxWidth: "55%" }}>{formattedDate}</span>
                   </div>
+                  <div className="ag-summary-row">
+                    <span className="ag-summary-label">Horário</span>
+                    <span className="ag-summary-value">{localTime}</span>
+                  </div>
+                  {serviceDuration && (
+                    <div className="ag-summary-row">
+                      <span className="ag-summary-label">Duração</span>
+                      <span className="ag-summary-value">{serviceDuration} min</span>
+                    </div>
+                  )}
+                  {servicePrice != null && (
+                    <div className="ag-summary-row">
+                      <span className="ag-summary-label">Valor</span>
+                      <span className="ag-summary-price">R$ {servicePrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="ag-expiry-note">
+                  ⏳ Após confirmar, você tem <strong>30 minutos</strong> para completar o pagamento.
+                </div>
+
+                {createAppt.error && (
+                  <p className="ag-erro" style={{ marginBottom: 10 }}>⚠️ {createAppt.error.message}</p>
                 )}
 
                 <button
-                  className="ag-finalizar"
-                  disabled={!selectedDate || !selectedTime || createAppt.isPending || !dbUser}
-                  onClick={handleFinalizar}
+                  className="ag-btn-primary"
+                  disabled={createAppt.isPending || !dbUser}
+                  onClick={handleConfirm}
                 >
-                  {createAppt.isPending ? (
-                    <><div className="ag-spinner" /> Confirmando...</>
-                  ) : (
-                    "Confirmar agendamento →"
-                  )}
+                  {createAppt.isPending
+                    ? <><div className="ag-spinner" /> Confirmando...</>
+                    : "Confirmar agendamento →"}
                 </button>
-
-                {!dbUser && (
-                  <p className="ag-login-warn">Faça login para agendar.</p>
-                )}
+                {!dbUser && <p className="ag-login-warn">Faça login para agendar.</p>}
               </>
+            )}
+
+            {/* STEP 4: SUCESSO */}
+            {step === "success" && createAppt.data && (
+              <div className="ag-success">
+                <div className="ag-success-icon">🎉</div>
+                <h3>Agendamento criado!</h3>
+                <p>
+                  <strong style={{ color: "#fff" }}>{serviceTitle}</strong> com{" "}
+                  <strong style={{ color: "#fff" }}>{providerName ?? "o prestador"}</strong>
+                  <br />
+                  <span style={{ textTransform: "capitalize" }}>{formattedDate}</span> às {localTime}
+                </p>
+                <div className="ag-expiry-note">
+                  ⏳ Complete o pagamento em <strong>30 minutos</strong> para garantir sua reserva.
+                </div>
+                <a
+                  href={`/checkout/${createAppt.data.id}`}
+                  className="ag-btn-primary"
+                  style={{ marginBottom: 8 }}
+                >
+                  🔒 Pagar agora →
+                </a>
+                <a
+                  href="/appointments"
+                  className="ag-btn-primary"
+                  style={{ background: "rgba(255,255,255,0.08)", boxShadow: "none", marginBottom: 8 }}
+                >
+                  Ver meus agendamentos
+                </a>
+                <button className="ag-btn-ghost" onClick={handleFechar}>Fechar</button>
+              </div>
             )}
           </div>
         </div>

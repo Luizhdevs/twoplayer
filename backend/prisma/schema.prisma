@@ -17,6 +17,7 @@ enum Role {
 
 enum AppointmentStatus {
   PENDING_PAYMENT
+  EXPIRED
   PENDING
   PAID
   CONFIRMED
@@ -213,6 +214,7 @@ model Appointment {
   provider    Provider          @relation(fields: [providerId], references: [id])
   scheduledAt DateTime          @map("scheduled_at")
   status      AppointmentStatus @default(PENDING_PAYMENT)
+  expiresAt   DateTime?         @map("expires_at")
   notes       String?
   amount      Int
   meetingUrl  String?           @map("meeting_url")

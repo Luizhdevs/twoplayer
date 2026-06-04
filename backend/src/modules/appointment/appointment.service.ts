@@ -10,6 +10,7 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { ServiceRepository } from '../service/service.repository';
 import { AvailabilityService } from '../availability/availability.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class AppointmentService {
@@ -17,6 +18,7 @@ export class AppointmentService {
     private readonly repo: AppointmentRepository,
     private readonly serviceRepo: ServiceRepository,
     private readonly availabilityService: AvailabilityService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   findAllByUser(userId: string) {
@@ -40,16 +42,37 @@ export class AppointmentService {
 
     const scheduledAt = new Date(dto.scheduledAt);
 
-    // Fase 5 + 6: Validação de disponibilidade real (notice, max-ahead, weekday, blocks)
     await this.availabilityService.validateBooking(dto.providerId, scheduledAt);
 
-    // Verificação de conflito direto com appointments existentes
     const conflict = await this.repo.checkConflict(dto.providerId, scheduledAt);
     if (conflict) {
       throw new ConflictException('Horário indisponível — já existe agendamento neste horário');
     }
 
-    return this.repo.create(dto, svc.price);
+    const appt = await this.repo.create(dto, svc.price);
+
+    // Notificar criação
+    await this.notificationService.notify(
+      dto.userId,
+      'Agendamento criado',
+      `Seu agendamento para ${svc.title} foi criado. Complete o pagamento em até 30 minutos.`,
+      'APPOINTMENT',
+      { appointmentId: appt.id },
+    );
+
+    // Notificar prestador
+    const providerUserId = (appt.provider as any)?.user?.id;
+    if (providerUserId) {
+      await this.notificationService.notify(
+        providerUserId,
+        'Novo agendamento',
+        `Um cliente agendou ${svc.title}. Aguardando pagamento.`,
+        'APPOINTMENT',
+        { appointmentId: appt.id },
+      );
+    }
+
+    return appt;
   }
 
   async updateStatus(id: string, dto: UpdateAppointmentDto) {
@@ -62,7 +85,21 @@ export class AppointmentService {
     if (appt.status === 'COMPLETED') {
       throw new BadRequestException('Agendamento já concluído não pode ser cancelado');
     }
-    return this.repo.updateStatus(id, 'CANCELLED');
+    if (['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(appt.status)) {
+      throw new BadRequestException('Agendamento já está cancelado ou expirado');
+    }
+    const updated = await this.repo.updateStatus(id, 'CANCELLED');
+
+    // Notificar cancelamento
+    await this.notificationService.notify(
+      appt.userId,
+      'Agendamento cancelado',
+      `Seu agendamento foi cancelado.`,
+      'APPOINTMENT',
+      { appointmentId: id },
+    );
+
+    return updated;
   }
 
   async remove(id: string) {

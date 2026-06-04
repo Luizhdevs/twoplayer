@@ -16,6 +16,7 @@ export type Appointment = {
 
 export type AppointmentStatus =
   | "PENDING_PAYMENT"
+  | "EXPIRED"
   | "PENDING"
   | "PAID"
   | "CONFIRMED"

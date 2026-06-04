@@ -172,9 +172,11 @@ export default function ProviderPage() {
                   </div>
                   <AgendarButton
                     providerId={provider.id}
+                    providerName={provider.user?.name}
                     serviceId={service.id}
                     serviceTitle={service.title}
                     servicePrice={service.price}
+                    serviceDuration={service.duration}
                   />
                 </div>
               </div>

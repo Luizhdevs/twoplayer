@@ -44,12 +44,16 @@ export function useProvider(id: string) {
   });
 }
 
-export function useAvailableSlots(providerId: string, date: string) {
+export function useAvailableSlots(
+  providerId: string,
+  date: string,
+  serviceDuration?: number,
+) {
   return useQuery({
-    queryKey: [...PROVIDERS_KEY, providerId, "slots", date],
-    queryFn:  () => providersService.getAvailableSlots(providerId, date),
+    queryKey: [...PROVIDERS_KEY, providerId, "slots", date, serviceDuration],
+    queryFn:  () => providersService.getAvailableSlots(providerId, date, serviceDuration),
     enabled:  !!providerId && !!date,
-    staleTime: 30 * 1000, // slots expiram rápido
+    staleTime: 30 * 1000,
   });
 }
 

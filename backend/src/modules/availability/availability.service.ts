@@ -71,50 +71,64 @@ export class AvailabilityService {
 
   // ── Slots disponíveis ────────────────────────────────────────────────────
 
-  async getAvailableSlots(providerId: string, dateStr: string): Promise<string[]> {
+  async getAvailableSlots(
+    providerId: string,
+    dateStr: string,
+    serviceDuration?: number,
+  ): Promise<string[]> {
     const date = new Date(`${dateStr}T00:00:00.000Z`);
     if (isNaN(date.getTime())) {
       throw new BadRequestException('Formato de data inválido. Use YYYY-MM-DD');
     }
 
     const weekday = date.getUTCDay();
+    const duration = serviceDuration && serviceDuration > 0 ? serviceDuration : undefined;
 
-    // Busca disponibilidade, appointments e bloqueios em paralelo para < 300ms
     const [availability, appointments, blocks] = await Promise.all([
       this.availabilityRepo.findByProviderAndWeekday(providerId, weekday),
       this.prisma.appointment.findMany({
         where: {
           providerId,
           deletedAt: null,
-          status: { in: ['PENDING', 'CONFIRMED'] },
+          status: { in: ['PENDING_PAYMENT', 'PENDING', 'PAID', 'CONFIRMED', 'IN_PROGRESS'] },
           scheduledAt: {
             gte: new Date(`${dateStr}T00:00:00.000Z`),
             lte: new Date(`${dateStr}T23:59:59.999Z`),
           },
         },
-        select: { scheduledAt: true },
+        select: { scheduledAt: true, service: { select: { duration: true } } },
       }),
       this.blockRepo.findByProviderAndDate(providerId, date),
     ]);
 
     if (!availability) return [];
 
-    const slots    = generateSlots(availability.startTime, availability.endTime);
-    const now      = new Date();
-    const minTime  = new Date(now.getTime() + MIN_BOOKING_NOTICE_HOURS * 60 * 60 * 1000);
-    const maxTime  = new Date(now.getTime() + MAX_BOOKING_DAYS_AHEAD * 24 * 60 * 60 * 1000);
+    const slots   = generateSlots(availability.startTime, availability.endTime, duration);
+    const now     = new Date();
+    const minTime = new Date(now.getTime() + MIN_BOOKING_NOTICE_HOURS * 60 * 60 * 1000);
+    const maxTime = new Date(now.getTime() + MAX_BOOKING_DAYS_AHEAD * 24 * 60 * 60 * 1000);
 
-    const bookedTimes = new Set(appointments.map((a) => extractTimeUTC(a.scheduledAt)));
+    // Cada agendamento existente bloqueia [scheduledAt, scheduledAt + duration)
+    const bookedRanges = appointments.map((a) => ({
+      start: a.scheduledAt,
+      end:   new Date(a.scheduledAt.getTime() + (a.service?.duration ?? 60) * 60 * 1000),
+    }));
 
     return slots.filter((slot) => {
-      const slotDatetime = buildSlotDatetime(dateStr, slot);
+      const slotStart = buildSlotDatetime(dateStr, slot);
+      const slotEnd   = new Date(slotStart.getTime() + (duration ?? 60) * 60 * 1000);
 
-      if (slotDatetime <= minTime)  return false;
-      if (slotDatetime >  maxTime)  return false;
-      if (bookedTimes.has(slot))    return false;
+      if (slotStart <= minTime) return false;
+      if (slotStart >  maxTime) return false;
+
+      // Verifica se o slot se sobrepõe com algum agendamento existente
+      const hasConflict = bookedRanges.some(
+        (r) => slotStart < r.end && slotEnd > r.start,
+      );
+      if (hasConflict) return false;
 
       const isBlocked = blocks.some(
-        (b) => slotDatetime >= b.startDatetime && slotDatetime < b.endDatetime,
+        (b) => slotStart < b.endDatetime && slotEnd > b.startDatetime,
       );
       return !isBlocked;
     });

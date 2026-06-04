@@ -42,6 +42,7 @@ export class AppointmentRepository {
   }
 
   async create(dto: CreateAppointmentDto, amount: number) {
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
     return this.prisma.appointment.create({
       data: {
         userId:      dto.userId,
@@ -50,9 +51,28 @@ export class AppointmentRepository {
         scheduledAt: new Date(dto.scheduledAt),
         notes:       dto.notes,
         amount,
-        status:      'PENDING_PAYMENT', // aguarda pagamento antes de confirmar
+        expiresAt,
+        status:      'PENDING_PAYMENT',
       },
       include: { service: true, provider: { include: { user: true } }, user: true },
+    });
+  }
+
+  findExpiredPendingPayments() {
+    return this.prisma.appointment.findMany({
+      where: {
+        status: 'PENDING_PAYMENT',
+        deletedAt: null,
+        expiresAt: { lte: new Date() },
+      },
+      include: { user: true, service: true, provider: { include: { user: true } } },
+    });
+  }
+
+  expireAppointment(id: string) {
+    return this.prisma.appointment.update({
+      where: { id },
+      data: { status: 'EXPIRED' },
     });
   }
 

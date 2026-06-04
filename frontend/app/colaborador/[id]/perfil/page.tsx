@@ -27,6 +27,7 @@ const MOCK_COMENTARIOS: Comentario[] = [
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
   PENDING_PAYMENT:              { label: "Ag. pagamento",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  EXPIRED:                      { label: "Expirado",        color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   PENDING:                      { label: "Pendente",        color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
   PAID:                         { label: "Pago",            color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
   CONFIRMED:                    { label: "Confirmado",      color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
@@ -293,11 +294,15 @@ export default function ColaboradorPerfilPage() {
     </div>
   );
 
-  // Separa agendamentos por categoria para o dashboard
-  const apptList     = appointments ?? [];
-  const activeAppts  = apptList.filter(a => ["PAID", "CONFIRMED", "IN_PROGRESS", "AWAITING_CLIENT_CONFIRMATION"].includes(a.status));
-  const pendingAppts = apptList.filter(a => a.status === "PENDING_PAYMENT" || a.status === "PENDING");
-  const pastAppts    = apptList.filter(a => ["COMPLETED", "CANCELLED", "REFUNDED", "DISPUTED"].includes(a.status));
+  // Dashboard sections
+  const apptList          = appointments ?? [];
+  const needsActionAppts  = apptList.filter(a => a.status === "PAID"); // aguarda confirmação
+  const confirmedAppts    = apptList.filter(a => a.status === "CONFIRMED");
+  const inProgressAppts   = apptList.filter(a => a.status === "IN_PROGRESS");
+  const awaitingAppts     = apptList.filter(a => a.status === "AWAITING_CLIENT_CONFIRMATION");
+  const pendingAppts      = apptList.filter(a => ["PENDING_PAYMENT", "PENDING"].includes(a.status));
+  const pastAppts         = apptList.filter(a => ["COMPLETED", "CANCELLED", "REFUNDED", "DISPUTED", "EXPIRED"].includes(a.status));
+  const activeAppts       = [...needsActionAppts, ...confirmedAppts, ...inProgressAppts, ...awaitingAppts];
 
   return (
     <>
@@ -421,64 +426,80 @@ export default function ColaboradorPerfilPage() {
 
           {/* ── DASHBOARD DE AGENDAMENTOS ── */}
           <div className="cp-card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: 8 }}>
-              <div className="cp-section-title" style={{ marginBottom: 0 }}>Agendamentos</div>
-              {apptList.length > 0 && (
-                <span style={{ fontSize: 12, color: "#555" }}>{apptList.length} total</span>
-              )}
-            </div>
+            <div className="cp-section-title">Agendamentos</div>
 
-            {/* Loading */}
             {(providerLoading || apptLoading) && (
-              <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+              <div style={{ textAlign:"center", padding:"1.5rem 0" }}>
                 <div className="cp-appt-spinner" />
-                <p style={{ fontSize: 12, color: "#555", marginTop: 8 }}>Carregando agendamentos...</p>
+                <p style={{ fontSize:12, color:"#555", marginTop:8 }}>Carregando...</p>
               </div>
             )}
 
-            {/* Sem provider profile no backend */}
-            {!providerLoading && !myProvider && dbUser && (
-              <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
-                <p style={{ fontSize: 13, color: "#555" }}>Perfil de prestador não encontrado no backend.</p>
-                <p style={{ fontSize: 12, color: "#444", marginTop: 4 }}>Cadastre-se como provider para visualizar agendamentos.</p>
-              </div>
-            )}
-
-            {/* Sem agendamentos */}
-            {!providerLoading && !apptLoading && myProvider && apptList.length === 0 && (
-              <p style={{ fontSize: 13, color: "#555", textAlign: "center", padding: "1.5rem 0" }}>
+            {!providerLoading && !apptLoading && apptList.length === 0 && (
+              <p style={{ fontSize:13, color:"#555", textAlign:"center", padding:"1.5rem 0" }}>
                 Nenhum agendamento recebido ainda.
               </p>
             )}
 
-            {/* Agendamentos ativos (ação necessária) */}
-            {activeAppts.length > 0 && (
-              <>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#fd5b01", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-                  Ação necessária ({activeAppts.length})
+            {/* AÇÃO NECESSÁRIA — cliente pagou, aguarda confirmação */}
+            {needsActionAppts.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#fd5b01", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ background:"#fd5b01", color:"#fff", borderRadius:"50%", width:18, height:18, display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10 }}>{needsActionAppts.length}</span>
+                  Confirmar agendamento
                 </p>
-                {activeAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
-              </>
+                {needsActionAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </div>
             )}
 
-            {/* Aguardando pagamento */}
+            {/* EM ANDAMENTO */}
+            {inProgressAppts.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#a78bfa", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                  Em andamento ({inProgressAppts.length})
+                </p>
+                {inProgressAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </div>
+            )}
+
+            {/* PRÓXIMOS CONFIRMADOS */}
+            {confirmedAppts.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#4ade80", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                  Próximos confirmados ({confirmedAppts.length})
+                </p>
+                {confirmedAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </div>
+            )}
+
+            {/* AGUARDANDO APROVAÇÃO DO CLIENTE */}
+            {awaitingAppts.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#f59e0b", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                  Aguardando aprovação do cliente ({awaitingAppts.length})
+                </p>
+                {awaitingAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </div>
+            )}
+
+            {/* AGUARDANDO PAGAMENTO */}
             {pendingAppts.length > 0 && (
-              <>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.08em", margin: "16px 0 8px" }}>
-                  Aguardando ({pendingAppts.length})
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#3b82f6", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                  Aguardando pagamento ({pendingAppts.length})
                 </p>
                 {pendingAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
-              </>
+              </div>
             )}
 
-            {/* Histórico */}
+            {/* HISTÓRICO */}
             {pastAppts.length > 0 && (
-              <>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.08em", margin: "16px 0 8px" }}>
+              <div>
+                <p style={{ fontSize:11, fontWeight:700, color:"#555", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, marginTop: activeAppts.length || pendingAppts.length ? 8 : 0 }}>
                   Histórico ({pastAppts.length})
                 </p>
                 {pastAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
-              </>
+              </div>
             )}
           </div>
 

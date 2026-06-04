@@ -74,14 +74,16 @@ export class AvailabilityController {
   getAvailableSlots(
     @Param('providerId') providerId: string,
     @Query('date') date: string,
+    @Query('serviceDuration') serviceDuration?: string,
   ) {
-    return this.availabilityService.getAvailableSlots(providerId, date);
+    const duration = serviceDuration ? parseInt(serviceDuration, 10) : undefined;
+    return this.availabilityService.getAvailableSlots(providerId, date, duration);
   }
 
   // ── Helper privado ────────────────────────────────────────────────────────
 
   private async resolveProvider(firebaseUid: string) {
-    const provider = await this.providerRepo.findByUserId(firebaseUid);
+    const provider = await this.providerRepo.findByFirebaseUid(firebaseUid);
     if (!provider) {
       throw new NotFoundException('Perfil de prestador não encontrado para este usuário');
     }

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAppointment, useCancelAppointment, useApproveAppointment } from "@/hooks/useAppointments";
 import type { AppointmentStatus } from "@/services/appointments.service";
 
@@ -10,6 +11,7 @@ import type { AppointmentStatus } from "@/services/appointments.service";
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
   PENDING_PAYMENT:              { label: "Aguardando pagamento", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  EXPIRED:                      { label: "Expirado",            color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
   PENDING:                      { label: "Pendente",            color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
   PAID:                         { label: "Pago",                color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
   CONFIRMED:                    { label: "Confirmado",          color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
@@ -20,6 +22,27 @@ const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; b
   REFUNDED:                     { label: "Reembolsado",         color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
   DISPUTED:                     { label: "Em disputa",          color: "#f87171", bg: "rgba(248,113,113,0.12)" },
 };
+
+function useMeetingCountdown(scheduledAt: string, durationMin = 60) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  const start = new Date(scheduledAt).getTime();
+  const end   = start + durationMin * 60 * 1000;
+  const openAt = start - 15 * 60 * 1000;
+
+  if (now >= openAt && now <= end + 2 * 60 * 60 * 1000) return { state: "active" as const };
+  if (now < openAt) {
+    const diffMs = openAt - now;
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    return { state: "soon" as const, label: h > 0 ? `${h}h ${m}min` : `${m} min` };
+  }
+  return { state: "ended" as const };
+}
 
 const CANCELLABLE: AppointmentStatus[] = ["PENDING_PAYMENT", "PENDING", "PAID", "CONFIRMED"];
 const APPROVABLE: AppointmentStatus[]  = ["AWAITING_CLIENT_CONFIRMATION"];
@@ -55,7 +78,8 @@ export default function AppointmentDetailPage() {
   const avatarUrl     = appt.provider?.user?.avatarUrl ?? null;
   const canCancel     = CANCELLABLE.includes(appt.status);
   const canApprove    = APPROVABLE.includes(appt.status);
-  const showMeeting   = !!appt.meetingUrl && !["PENDING_PAYMENT", "CANCELLED", "REFUNDED", "DISPUTED"].includes(appt.status);
+  const meetingCountdown = useMeetingCountdown(appt.scheduledAt, appt.service?.duration ?? 60);
+  const showMeetingSection = !!appt.meetingUrl && !["PENDING_PAYMENT","EXPIRED","CANCELLED","REFUNDED","DISPUTED"].includes(appt.status);
 
   const scheduledDate = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
@@ -184,31 +208,48 @@ export default function AppointmentDetailPage() {
           </div>
 
           {/* LINK DA REUNIÃO */}
-          {showMeeting && (
+          {showMeetingSection && (
             <div className="ad-card">
-              <div className="ad-section-label">Reunião</div>
-              <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14, lineHeight: 1.6 }}>
-                Este link será utilizado para realização do atendimento online.
-              </p>
-              <a
-                href={appt.meetingUrl!}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  width: "100%", padding: 13,
-                  background: "rgba(74,222,128,0.1)",
-                  border: "1px solid rgba(74,222,128,0.3)",
-                  borderRadius: 10, color: "#4ade80",
-                  fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700,
-                  textDecoration: "none", transition: "opacity 0.2s",
-                }}
-              >
-                🎥 Entrar na Reunião
-              </a>
-              <p style={{ fontSize: 10, color: "#444", textAlign: "center", marginTop: 8, fontFamily: "'Sora',sans-serif", wordBreak: "break-all" }}>
-                {appt.meetingUrl}
-              </p>
+              <div className="ad-section-label">Reunião online</div>
+              {meetingCountdown.state === "active" && (
+                <>
+                  <p style={{ fontSize: 12, color: "#4ade80", marginBottom: 14, lineHeight: 1.6 }}>
+                    🟢 A reunião está disponível agora!
+                  </p>
+                  <a
+                    href={appt.meetingUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      width: "100%", padding: 14,
+                      background: "rgba(74,222,128,0.1)",
+                      border: "1px solid rgba(74,222,128,0.3)",
+                      borderRadius: 10, color: "#4ade80",
+                      fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700,
+                      textDecoration: "none",
+                    }}
+                  >
+                    🎥 Entrar na Reunião
+                  </a>
+                </>
+              )}
+              {meetingCountdown.state === "soon" && (
+                <div style={{ textAlign: "center", padding: "0.75rem 0" }}>
+                  <p style={{ fontSize: 28, marginBottom: 8 }}>⏰</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
+                    Reunião disponível em {meetingCountdown.label}
+                  </p>
+                  <p style={{ fontSize: 12, color: "#666" }}>
+                    O botão de acesso aparece 15 minutos antes do horário agendado.
+                  </p>
+                </div>
+              )}
+              {meetingCountdown.state === "ended" && (
+                <p style={{ fontSize: 12, color: "#666", textAlign: "center", padding: "0.5rem 0" }}>
+                  A janela de acesso à reunião foi encerrada.
+                </p>
+              )}
             </div>
           )}
 
