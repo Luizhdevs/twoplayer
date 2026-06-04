@@ -174,7 +174,7 @@ export default function ColaboradorPerfilPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
-  const { dbUser, logout } = useAuth();
+  const { dbUser, loading: authLoading, logout } = useAuth();
 
   // Saldo real da wallet
   const { data: walletData } = useWallet(dbUser?.id ?? "");
@@ -208,10 +208,25 @@ export default function ColaboradorPerfilPage() {
   const [sOk,     setSOk]     = useState(false);
 
   useEffect(() => {
-    if (dbUser && String(dbUser.id) === String(id)) {
-      setColab({ id: dbUser.id, name: dbUser.name, email: dbUser.email, bio: dbUser.bio ?? undefined, avatarUrl: dbUser.avatarUrl ?? undefined });
+    if (dbUser) {
+      // Funciona tanto para login Firebase (UUID) quanto para mock (id numérico)
+      setColab({
+        id:       dbUser.id,
+        name:     dbUser.name,
+        email:    dbUser.email,
+        bio:      dbUser.bio ?? undefined,
+        avatarUrl: dbUser.avatarUrl ?? undefined,
+      });
+    } else if (!authLoading) {
+      // Firebase resolveu mas não há usuário autenticado
+      // Fallback: usa dados do URL + placeholder para não travar em "Carregando..."
+      setColab({
+        id,
+        name:  "Prestador",
+        email: "",
+      });
     }
-  }, [dbUser, id]);
+  }, [dbUser, id, authLoading]);
 
   function abrirEdit(s: Servico) {
     setShowEditServico(s); setSTitulo(s.titulo); setSDesc(s.descricao);
@@ -252,9 +267,11 @@ export default function ColaboradorPerfilPage() {
     });
   }
 
-  if (!colab) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#aaa", fontFamily: "'Sora',sans-serif" }}>
-      Carregando...
+  if (!colab || authLoading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", fontFamily: "'Sora',sans-serif", flexDirection: "column", gap: 16 }}>
+      <style>{`@keyframes cp-spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "cp-spin 0.8s linear infinite" }} />
+      <span style={{ color: "#555", fontSize: 13 }}>Carregando perfil...</span>
     </div>
   );
 
