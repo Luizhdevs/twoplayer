@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "@/providers/AuthProvider";
+import { useWallet } from "@/hooks/useWallet";
 
 type Transacao = {
   id: number;
@@ -110,24 +112,14 @@ export default function WalletPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
+  const { dbUser } = useAuth();
 
-  const [isColab, setIsColab] = useState(false);
+  const isColab = dbUser?.role === "PROVIDER";
 
-  useEffect(() => {
-    const colabStr = localStorage.getItem("tp_colab");
-    const userStr  = localStorage.getItem("tp_user");
-    if (colabStr) {
-      const colab = JSON.parse(colabStr);
-      if (String(colab.id) === String(id) && !userStr) {
-        setIsColab(true);
-        return;
-      }
-    }
-    setIsColab(false);
-  }, [id]);
+  const { data: walletData } = useWallet(id);
+  const saldo = (walletData?.balance ?? 0) / 100;
 
   const [transacoes, setTransacoes] = useState<Transacao[]>(TRANSACOES_MOCK);
-  const [saldo, setSaldo]           = useState(150.00);
   const [cartoes, setCartoes]       = useState<Cartao[]>([]);
   const [abaAtiva, setAbaAtiva]     = useState<"todos"|"recargas"|"gastos">("todos");
 
@@ -171,7 +163,6 @@ export default function WalletPage() {
     const valor = parseFloat(valorRecarga);
     if (!valor || valor <= 0 || metodoPagamento !== "cartao") return;
     setTransacoes(prev => [{ id: Date.now(), tipo: "recarga", descricao: "Recarga via Cartão", valor, data: new Date().toISOString().split("T")[0] }, ...prev]);
-    setSaldo(prev => prev + valor);
     setRecargaFeita(true);
   }
   function handleFecharRecarga() {
@@ -203,7 +194,6 @@ export default function WalletPage() {
     if (!valorResgateNum || valorResgateNum <= 0) { setResgateErro("Digite um valor válido."); return; }
     if (valorResgateNum > saldo) { setResgateErro("Saldo insuficiente."); return; }
     setTransacoes(prev => [{ id: Date.now(), tipo: "resgate" as const, descricao: "Resgate via Pix (taxa 15%)", valor: valorResgateNum, data: new Date().toISOString().split("T")[0] }, ...prev]);
-    setSaldo(prev => prev - valorResgateNum);
     setResgateOk(true);
   }
   function handleFecharReceber() {

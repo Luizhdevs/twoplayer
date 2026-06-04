@@ -3,11 +3,19 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/providers/AuthProvider";
+import { useMyProviderProfile, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
+import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
+import { useWallet } from "@/hooks/useWallet";
+import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
+
+// ── Tipos locais (perfil mock ainda em uso para serviços/galeria) ──────────────
 
 type Servico    = { id: number; titulo: string; descricao: string; preco: number; duracao: number };
 type Comentario = { id: number; usuario: string; servico: string; nota: number; texto: string; data: string };
-type Colaborador= { id: number; name: string; email: string; bio?: string; avatarUrl?: string };
+type Colaborador= { id: string | number; name: string; email: string; bio?: string; avatarUrl?: string };
 
 const MOCK_SERVICOS: Servico[] = [
   { id: 1, titulo: "Bate-papo",    descricao: "Sessão de 30min",  preco: 1000, duracao: 30 },
@@ -17,21 +25,178 @@ const MOCK_COMENTARIOS: Comentario[] = [
   { id: 1, usuario: "Ryan Charles",    servico: "Bate-papo",    nota: 5, texto: "Nunca imaginei que um dia pudesse conversar com o meu ídolo!", data: "2026-04-18" },
   { id: 2, usuario: "Deyvison Dênnis", servico: "Partida de CS", nota: 4, texto: "Craque dentro e fora dos gramados!", data: "2026-04-10" },
 ];
-const MOCK_FOTOS = ["/ney1.jpg", "/ney2.jpeg", "/ney3.jpg"];
-const MOCK_SALDO = 150.00;
+
+// ── Status config (para dashboard de appointments) ────────────────────────────
+
+const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
+  PENDING_PAYMENT:              { label: "Ag. pagamento",   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  PENDING:                      { label: "Pendente",        color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
+  PAID:                         { label: "Pago",            color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CONFIRMED:                    { label: "Confirmado",      color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  IN_PROGRESS:                  { label: "Em andamento",   color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  AWAITING_CLIENT_CONFIRMATION: { label: "Ag. cliente",    color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
+  COMPLETED:                    { label: "Concluído",       color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  CANCELLED:                    { label: "Cancelado",       color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  REFUNDED:                     { label: "Reembolsado",    color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
+  DISPUTED:                     { label: "Em disputa",     color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+};
+
+function StatusBadge({ status }: { status: AppointmentStatus }) {
+  const cfg = STATUS_CONFIG[status] ?? { label: status, color: "#aaa", bg: "rgba(255,255,255,0.08)" };
+  return (
+    <span style={{
+      display: "inline-block",
+      background: cfg.bg, color: cfg.color,
+      fontSize: 10, fontWeight: 700,
+      padding: "3px 8px", borderRadius: 100,
+      border: `1px solid ${cfg.color}33`,
+      whiteSpace: "nowrap",
+    }}>{cfg.label}</span>
+  );
+}
+
+// ── Card de appointment do prestador ─────────────────────────────────────────
+
+function AppointmentCard({ appt }: { appt: Appointment }) {
+  const confirm = useConfirmAppointment();
+  const start   = useStartAppointment();
+  const finish  = useFinishAppointment();
+
+  const clientName = appt.user?.name ?? "Cliente";
+  const date = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  const actionLoading = confirm.isPending || start.isPending || finish.isPending;
+  const actionErr     = confirm.error?.message ?? start.error?.message ?? finish.error?.message;
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,0.04)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 14, padding: "1rem 1.25rem",
+      marginBottom: 10,
+    }}>
+      {/* Header: cliente + status */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f0", margin: 0 }}>{clientName}</p>
+          <p style={{ fontSize: 12, color: "#666", margin: "2px 0 0" }}>{appt.service?.title ?? "Serviço"}</p>
+        </div>
+        <StatusBadge status={appt.status} />
+      </div>
+
+      {/* Detalhes */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: actionErr ? 8 : 0 }}>
+        <span style={{ fontSize: 12, color: "#777" }}>📅 {date}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#fd5b01" }}>
+          R$ {(appt.amount / 100).toFixed(2)}
+        </span>
+      </div>
+
+      {/* Ações baseadas no status */}
+      {appt.status === "PAID" && (
+        <button
+          className="cp-action-btn cp-action-confirm"
+          disabled={actionLoading}
+          onClick={() => confirm.mutate(appt.id)}
+        >
+          {confirm.isPending ? "Confirmando..." : "✅ Confirmar Serviço"}
+        </button>
+      )}
+
+      {appt.status === "CONFIRMED" && (
+        <button
+          className="cp-action-btn cp-action-start"
+          disabled={actionLoading}
+          onClick={() => start.mutate(appt.id)}
+        >
+          {start.isPending ? "Iniciando..." : "▶️ Iniciar Atendimento"}
+        </button>
+      )}
+
+      {appt.status === "IN_PROGRESS" && (
+        <button
+          className="cp-action-btn cp-action-finish"
+          disabled={actionLoading}
+          onClick={() => finish.mutate(appt.id)}
+        >
+          {finish.isPending ? "Finalizando..." : "🏁 Finalizar Atendimento"}
+        </button>
+      )}
+
+      {/* Link da reunião (para statuses ativos) */}
+      {appt.meetingUrl && !["PENDING_PAYMENT", "CANCELLED", "REFUNDED", "DISPUTED"].includes(appt.status) && (
+        <a
+          href={appt.meetingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            marginTop: 10, padding: "9px 0",
+            background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.25)",
+            borderRadius: 8, color: "#4ade80",
+            fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          🎥 Entrar na Reunião
+        </a>
+      )}
+
+      {/* Link para detalhes */}
+      <Link
+        href={`/appointments/${appt.id}`}
+        style={{ display: "block", marginTop: 8, fontSize: 11, color: "#555", textDecoration: "none" }}
+      >
+        Ver detalhes →
+      </Link>
+
+      {actionErr && (
+        <p style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>⚠️ {actionErr}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Stars({ nota }: { nota: number }) {
-  return <span>{Array.from({ length:5 }).map((_, i) => <span key={i} style={{ fontSize:14 }}>{i < nota ? "⭐" : "☆"}</span>)}</span>;
+  return <span>{Array.from({ length: 5 }).map((_, i) => (
+    <span key={i} style={{ fontSize: 14 }}>{i < nota ? "⭐" : "☆"}</span>
+  ))}</span>;
 }
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ColaboradorPerfilPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { dbUser, logout } = useAuth();
+
+  // Saldo real da wallet
+  const { data: walletData } = useWallet(dbUser?.id ?? "");
+  const walletBalance = walletData?.balance ?? 0;
+
+  // Lookup do Provider entity ID pelo nome do usuário autenticado
+  const { data: myProvider, isLoading: providerLoading } = useMyProviderProfile(dbUser?.name ?? "");
+  const providerId = myProvider?.id ?? "";
+
+  // Appointments do provider
+  const { data: appointments, isLoading: apptLoading } = useAppointmentsByProvider(providerId);
+
+  // Galeria real do provider
+  const { data: providerProfile } = useProvider(providerId);
+  const addGallery    = useAddGalleryImage();
+  const removeGallery = useRemoveGalleryImage();
+  // Imagens recém-adicionadas nesta sessão (com ID para remoção)
+  const [addedImages, setAddedImages] = useState<{ id: string; url: string }[]>([]);
+  const [uploadErr, setUploadErr]     = useState("");
 
   const [colab, setColab]               = useState<Colaborador | null>(null);
   const [servicos, setServicos]         = useState<Servico[]>(MOCK_SERVICOS);
-  const [fotos, setFotos]               = useState<string[]>(MOCK_FOTOS);
   const [showIndisponivel, setShowIndisp] = useState(false);
   const [showAddServico, setShowAddServico] = useState(false);
   const [showEditServico, setShowEditServico] = useState<Servico | null>(null);
@@ -43,12 +208,10 @@ export default function ColaboradorPerfilPage() {
   const [sOk,     setSOk]     = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("tp_colab");
-    if (stored) {
-      const d = JSON.parse(stored);
-      if (String(d.id) === String(id)) setColab(d);
+    if (dbUser && String(dbUser.id) === String(id)) {
+      setColab({ id: dbUser.id, name: dbUser.name, email: dbUser.email, bio: dbUser.bio ?? undefined, avatarUrl: dbUser.avatarUrl ?? undefined });
     }
-  }, [id]);
+  }, [dbUser, id]);
 
   function abrirEdit(s: Servico) {
     setShowEditServico(s); setSTitulo(s.titulo); setSDesc(s.descricao);
@@ -70,15 +233,36 @@ export default function ColaboradorPerfilPage() {
     setSTitulo(""); setSDesc(""); setSPreco(""); setSDur("");
   }
   function handleFotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return;
-    setFotos(prev => [...prev, URL.createObjectURL(file)]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadErr("");
+    addGallery.mutate(file, {
+      onSuccess: (result) => {
+        setAddedImages(prev => [...prev, { id: result.id, url: result.url }]);
+      },
+      onError: (err) => setUploadErr(err.message),
+    });
+    // Reset input so same file can be re-selected if needed
+    e.target.value = "";
+  }
+
+  function handleRemoveGalleryImage(imageId: string) {
+    removeGallery.mutate(imageId, {
+      onSuccess: () => setAddedImages(prev => prev.filter(i => i.id !== imageId)),
+    });
   }
 
   if (!colab) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#0d0d0d", color:"#aaa", fontFamily:"'Sora',sans-serif" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#aaa", fontFamily: "'Sora',sans-serif" }}>
       Carregando...
     </div>
   );
+
+  // Separa agendamentos por categoria para o dashboard
+  const apptList     = appointments ?? [];
+  const activeAppts  = apptList.filter(a => ["PAID", "CONFIRMED", "IN_PROGRESS", "AWAITING_CLIENT_CONFIRMATION"].includes(a.status));
+  const pendingAppts = apptList.filter(a => a.status === "PENDING_PAYMENT" || a.status === "PENDING");
+  const pastAppts    = apptList.filter(a => ["COMPLETED", "CANCELLED", "REFUNDED", "DISPUTED"].includes(a.status));
 
   return (
     <>
@@ -144,53 +328,138 @@ export default function ColaboradorPerfilPage() {
         .cp-success-icon { font-size:48px; margin-bottom:12px; }
         .cp-success h3 { font-size:18px; font-weight:700; color:#fff; margin-bottom:8px; }
         .cp-success p  { font-size:13px; color:#888; margin-bottom:1.25rem; line-height:1.6; }
+
+        /* Botões de ação do appointment */
+        .cp-action-btn {
+          width:100%; margin-top:10px; padding:10px;
+          border:none; border-radius:8px;
+          font-family:'Sora',sans-serif; font-size:13px; font-weight:700;
+          cursor:pointer; transition:opacity .2s,transform .1s;
+        }
+        .cp-action-btn:hover:not(:disabled) { opacity:.85; }
+        .cp-action-btn:active:not(:disabled) { transform:scale(.98); }
+        .cp-action-btn:disabled { opacity:.4; cursor:not-allowed; }
+        .cp-action-confirm { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.3); }
+        .cp-action-start   { background:rgba(167,139,250,0.12); color:#a78bfa; border:1px solid rgba(167,139,250,0.3); }
+        .cp-action-finish  { background:rgba(253,91,1,0.12);   color:#fd5b01; border:1px solid rgba(253,91,1,0.3); }
+
+        .cp-appt-spinner { width:20px; height:20px; border:2px solid rgba(255,255,255,0.1); border-top-color:#fd5b01; border-radius:50%; animation:cpSpin .7s linear infinite; margin:0 auto; }
+        @keyframes cpSpin { to{transform:rotate(360deg)} }
+        .cp-tabs { display:flex; gap:4px; margin-bottom:1rem; }
+        .cp-tab { padding:7px 14px; border-radius:8px; border:none; font-family:'Sora',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+        .cp-tab.active { background:#fd5b01; color:#fff; }
+        .cp-tab:not(.active) { background:rgba(255,255,255,0.05); color:#666; }
+        .cp-tab:not(.active):hover { background:rgba(255,255,255,0.08); color:#aaa; }
       `}</style>
 
       <Navbar />
-      <div className="cp" style={{ background:"#0d0d0d", minHeight:"100vh", padding:"5rem 1.5rem 2rem" }}>
-        <div style={{ maxWidth:720, margin:"0 auto" }}>
+      <div className="cp" style={{ background: "#0d0d0d", minHeight: "100vh", padding: "5rem 1.5rem 2rem" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
           {/* HEADER */}
           <div className="cp-card">
-            <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:20 }}>
-              <div style={{ width:88, height:88, borderRadius:"50%", background:"linear-gradient(135deg,#fd5b01,#ff8c42)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, fontWeight:700, color:"#fff", flexShrink:0, boxShadow:"0 4px 24px rgba(253,91,1,0.35)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
+              <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg,#fd5b01,#ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#fff", flexShrink: 0, boxShadow: "0 4px 24px rgba(253,91,1,0.35)" }}>
                 {colab.name.charAt(0)}
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-                  <h1 style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:"-.03em" }}>{colab.name}</h1>
-                  <span style={{ background:"rgba(253,91,1,0.12)", color:"#fd5b01", fontSize:10, fontWeight:700, padding:"3px 10px", borderRadius:100, border:"1px solid rgba(253,91,1,0.25)" }}>Prestador</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-.03em" }}>{colab.name}</h1>
+                  <span style={{ background: "rgba(253,91,1,0.12)", color: "#fd5b01", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 100, border: "1px solid rgba(253,91,1,0.25)" }}>Prestador</span>
                 </div>
-                <p style={{ fontSize:13, color:"#666" }}>{colab.email}</p>
+                <p style={{ fontSize: 13, color: "#666" }}>{colab.email}</p>
               </div>
             </div>
 
             {/* CARTEIRA */}
             <button className="cp-wallet" onClick={() => router.push(`/users/${id}/wallet`)}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ width:42, height:42, background:"rgba(255,255,255,.2)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>👛</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, background: "rgba(255,255,255,.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👛</div>
                 <div>
-                  <div style={{ fontSize:11, fontWeight:600, color:"rgba(255,255,255,.8)", textTransform:"uppercase", letterSpacing:".05em", marginBottom:2 }}>Minha Carteira</div>
-                  <div style={{ fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"-.02em" }}>R$ {MOCK_SALDO.toFixed(2).replace(".",",")}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.8)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 2 }}>Minha Carteira</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-.02em" }}>R$ {(walletBalance / 100).toFixed(2).replace(".", ",")}</div>
                 </div>
               </div>
-              <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,.9)", background:"rgba(255,255,255,.15)", padding:"7px 14px", borderRadius:8, whiteSpace:"nowrap" }}>Ver carteira →</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.9)", background: "rgba(255,255,255,.15)", padding: "7px 14px", borderRadius: 8, whiteSpace: "nowrap" }}>Ver carteira →</div>
             </button>
+          </div>
+
+          {/* ── DASHBOARD DE AGENDAMENTOS ── */}
+          <div className="cp-card">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: 8 }}>
+              <div className="cp-section-title" style={{ marginBottom: 0 }}>Agendamentos</div>
+              {apptList.length > 0 && (
+                <span style={{ fontSize: 12, color: "#555" }}>{apptList.length} total</span>
+              )}
+            </div>
+
+            {/* Loading */}
+            {(providerLoading || apptLoading) && (
+              <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+                <div className="cp-appt-spinner" />
+                <p style={{ fontSize: 12, color: "#555", marginTop: 8 }}>Carregando agendamentos...</p>
+              </div>
+            )}
+
+            {/* Sem provider profile no backend */}
+            {!providerLoading && !myProvider && dbUser && (
+              <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+                <p style={{ fontSize: 13, color: "#555" }}>Perfil de prestador não encontrado no backend.</p>
+                <p style={{ fontSize: 12, color: "#444", marginTop: 4 }}>Cadastre-se como provider para visualizar agendamentos.</p>
+              </div>
+            )}
+
+            {/* Sem agendamentos */}
+            {!providerLoading && !apptLoading && myProvider && apptList.length === 0 && (
+              <p style={{ fontSize: 13, color: "#555", textAlign: "center", padding: "1.5rem 0" }}>
+                Nenhum agendamento recebido ainda.
+              </p>
+            )}
+
+            {/* Agendamentos ativos (ação necessária) */}
+            {activeAppts.length > 0 && (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#fd5b01", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  Ação necessária ({activeAppts.length})
+                </p>
+                {activeAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </>
+            )}
+
+            {/* Aguardando pagamento */}
+            {pendingAppts.length > 0 && (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.08em", margin: "16px 0 8px" }}>
+                  Aguardando ({pendingAppts.length})
+                </p>
+                {pendingAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </>
+            )}
+
+            {/* Histórico */}
+            {pastAppts.length > 0 && (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.08em", margin: "16px 0 8px" }}>
+                  Histórico ({pastAppts.length})
+                </p>
+                {pastAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </>
+            )}
           </div>
 
           {/* SERVIÇOS */}
           <div className="cp-card">
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem" }}>
-              <div className="cp-section-title" style={{ marginBottom:0 }}>Meus Serviços</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div className="cp-section-title" style={{ marginBottom: 0 }}>Meus Serviços</div>
               <button className="cp-btn-primary" onClick={abrirAdd}>+ Adicionar serviço</button>
             </div>
             {servicos.map(s => (
               <div key={s.id} className="cp-servico">
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
-                  <div style={{ flex:1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ flex: 1 }}>
                     <p className="cp-servico-titulo">{s.titulo}</p>
                     <p className="cp-servico-desc">{s.descricao}</p>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span className="cp-preco">R$ {s.preco}</span>
                       <span className="cp-dur">⏱ {s.duracao} min</span>
                     </div>
@@ -203,17 +472,66 @@ export default function ColaboradorPerfilPage() {
 
           {/* FOTOS */}
           <div className="cp-card">
-            <div className="cp-section-title">Fotos do Perfil</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: 8 }}>
+              <div className="cp-section-title" style={{ marginBottom: 0 }}>Galeria</div>
+              {addGallery.isPending && (
+                <span style={{ fontSize: 12, color: "#fd5b01", fontFamily: "'Sora',sans-serif" }}>Enviando...</span>
+              )}
+            </div>
+
+            {uploadErr && (
+              <p style={{ fontSize: 12, color: "#f87171", marginBottom: 12, fontFamily: "'Sora',sans-serif" }}>
+                ⚠️ {uploadErr}
+              </p>
+            )}
+
             <div className="cp-gallery">
-              {fotos.map((f, i) => (
-                <div key={i} className="cp-gallery-item">
-                  <Image src={f} alt="Foto" fill style={{ objectFit:"cover" }} />
+              {/* Imagens existentes (sem ID disponível → sem botão de remoção) */}
+              {(providerProfile?.images ?? []).map((url, i) => {
+                const isAdded = addedImages.some(a => a.url === url);
+                if (isAdded) return null; // evita duplicatas com addedImages
+                return (
+                  <div key={`existing-${i}`} className="cp-gallery-item">
+                    <Image src={url} alt="Foto" fill style={{ objectFit: "cover" }} />
+                  </div>
+                );
+              })}
+
+              {/* Imagens adicionadas nesta sessão (com botão de remoção) */}
+              {addedImages.map(img => (
+                <div key={img.id} className="cp-gallery-item" style={{ position: "relative" }}>
+                  <Image src={img.url} alt="Foto" fill style={{ objectFit: "cover" }} />
+                  <button
+                    onClick={() => handleRemoveGalleryImage(img.id)}
+                    disabled={removeGallery.isPending}
+                    style={{
+                      position: "absolute", top: 4, right: 4, zIndex: 2,
+                      background: "rgba(0,0,0,0.7)", border: "none",
+                      borderRadius: "50%", width: 22, height: 22,
+                      color: "#f87171", fontSize: 12, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      lineHeight: 1,
+                    }}
+                    title="Remover"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
-              <label className="cp-foto-add" htmlFor="foto-upload">
-                <span>+</span><p>Adicionar foto</p>
+
+              {/* Adicionar nova foto */}
+              <label className="cp-foto-add" htmlFor="foto-upload" style={{ opacity: addGallery.isPending ? 0.5 : 1, cursor: addGallery.isPending ? "not-allowed" : "pointer" }}>
+                <span>{addGallery.isPending ? "⏳" : "+"}</span>
+                <p>Adicionar foto</p>
               </label>
-              <input id="foto-upload" type="file" accept="image/*" style={{ display:"none" }} onChange={handleFotoUpload} />
+              <input
+                id="foto-upload"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={handleFotoUpload}
+                disabled={addGallery.isPending}
+              />
             </div>
           </div>
 
@@ -222,13 +540,13 @@ export default function ColaboradorPerfilPage() {
             <div className="cp-section-title">Comentários dos Clientes</div>
             {MOCK_COMENTARIOS.map(c => (
               <div key={c.id} className="cp-comment">
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <span className="cp-comment-user">{c.usuario}</span>
                   <span className="cp-comment-service">{c.servico}</span>
                 </div>
                 <Stars nota={c.nota} />
                 <p className="cp-comment-text">"{c.texto}"</p>
-                <p className="cp-comment-date">{new Date(c.data+"T00:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</p>
+                <p className="cp-comment-date">{new Date(c.data + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
               </div>
             ))}
           </div>
@@ -236,12 +554,13 @@ export default function ColaboradorPerfilPage() {
           {/* CONFIGURAÇÕES */}
           <div className="cp-card">
             <div className="cp-section-title">Configurações</div>
+            <Link href="/providers/me/availability" className="cp-btn-ghost" style={{ textDecoration: "none" }}>
+              📅 Minha Disponibilidade
+            </Link>
             <button className="cp-btn-ghost" onClick={() => setShowIndisp(true)}>✏️ Editar perfil</button>
             <button className="cp-btn-ghost" onClick={() => setShowIndisp(true)}>🔒 Alterar senha</button>
-            <button className="cp-btn-ghost" onClick={() => {
-              localStorage.removeItem("tp_user");
-              localStorage.removeItem("tp_colab");
-              localStorage.removeItem("tp_remember");
+            <button className="cp-btn-ghost" onClick={async () => {
+              await logout();
               window.location.href = "/login";
             }}>🚪 Sair da conta</button>
           </div>
@@ -263,10 +582,10 @@ export default function ColaboradorPerfilPage() {
               </div>
             ) : (
               <>
-                <p style={{ fontSize:18, fontWeight:700, color:"#fff", letterSpacing:"-.02em", marginBottom:4 }}>
+                <p style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-.02em", marginBottom: 4 }}>
                   {showEditServico ? "✏️ Alterar serviço" : "➕ Adicionar serviço"}
                 </p>
-                <p style={{ fontSize:13, color:"#777", marginBottom:"1.25rem" }}>
+                <p style={{ fontSize: 13, color: "#777", marginBottom: "1.25rem" }}>
                   {showEditServico ? "Edite as informações do serviço" : "Preencha os dados do novo serviço"}
                 </p>
                 <label className="cp-label">Título</label>
@@ -291,9 +610,9 @@ export default function ColaboradorPerfilPage() {
         <div className="overlay" onClick={() => setShowIndisp(false)}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowIndisp(false)}>✕</button>
-            <div style={{ fontSize:32, marginBottom:12 }}>🚧</div>
-            <h3 style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#fff" }}>Serviço indisponível</h3>
-            <p style={{ fontSize:13, color:"#888", lineHeight:1.6 }}>Este serviço está atualmente indisponível. Em breve estará disponível!</p>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🚧</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "#fff" }}>Serviço indisponível</h3>
+            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>Este serviço está atualmente indisponível. Em breve estará disponível!</p>
             <button className="modal-confirm" onClick={() => setShowIndisp(false)}>Entendi</button>
           </div>
         </div>

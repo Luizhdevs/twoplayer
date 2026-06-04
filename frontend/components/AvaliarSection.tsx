@@ -5,7 +5,7 @@ import AvaliarButton from "./AvaliarButton";
 
 type Review = {
   id: string; rating: number; comment: string;
-  services: { id: number; title: string };
+  services: { id: string | number; title: string };
   user: { name: string };
 };
 type Props = {

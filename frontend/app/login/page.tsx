@@ -120,14 +120,12 @@ export default function LoginPage() {
     if (!loginEmail || !loginPw) { setLoginError("Preencha e-mail e senha."); return; }
     setLoginLoading(true);
     try {
-      const credential = await signInWithEmailAndPassword(auth, loginEmail, loginPw);
-      const user = credential.user;
+      await signInWithEmailAndPassword(auth, loginEmail, loginPw);
       if (remember) {
         localStorage.setItem("tp_remember", JSON.stringify({ email: loginEmail, password: loginPw }));
       } else {
         localStorage.removeItem("tp_remember");
       }
-      localStorage.setItem("tp_user", JSON.stringify({ uid: user.uid, name: user.displayName ?? loginEmail, email: user.email }));
       window.location.href = "/home";
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";
@@ -158,9 +156,7 @@ export default function LoginPage() {
     if (!regCanSubmit) return;
     setLoginLoading(true);
     try {
-      const credential = await createUserWithEmailAndPassword(auth, regEmail, regPw);
-      const user = credential.user;
-      localStorage.setItem("tp_user", JSON.stringify({ uid: user.uid, name: regName, email: user.email }));
+      await createUserWithEmailAndPassword(auth, regEmail, regPw);
       window.location.href = "/home";
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";

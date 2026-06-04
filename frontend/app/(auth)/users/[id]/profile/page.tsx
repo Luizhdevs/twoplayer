@@ -1,67 +1,119 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { useAuth } from "@/providers/AuthProvider";
+import { useUpdateAvatar } from "@/hooks/useProfile";
 
 type Appointment = { id: number; service: string; provider: string; date: string; status: string };
-type UserProfile = { id: number; name: string; email: string; avatarUrl?: string; bio?: string; appointments?: Appointment[] };
-
-const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
-  "Concluído": { color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  "Agendado":  { color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
-  "Cancelado": { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+type UserProfile = {
+  id:           number;
+  name:         string;
+  email:        string;
+  avatarUrl?:   string;
+  bio?:         string;
+  appointments?: Appointment[];
+  wallet?:      { balance: number } | null;
 };
 
-const MOCK_SALDO = 150.00;
+const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
+  "Concluído":            { color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  "Agendado":             { color: "#fd5b01", bg: "rgba(253,91,1,0.12)"   },
+  "Cancelado":            { color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  "Pendente":             { color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
+  "Aguardando pagamento": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+};
 
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const id = params?.id as string;
+  const id     = params?.id as string;
+  const { logout } = useAuth();
+
+  const updateAvatar = useUpdateAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showIndisponivel, setShowIndisponivel] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user,    setUser]    = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error,   setError]   = useState<string | null>(null);
+
+  // Avatar state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
+  const [avatarError,   setAvatarError]   = useState("");
 
   useEffect(() => {
     async function load() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-        const res = await fetch(`${apiUrl}/users/${id}/profile`, { cache: "no-store" });
-        if (res.ok) { setUser(await res.json()); setLoading(false); return; }
-      } catch {}
-      try {
-        const stored = localStorage.getItem("tp_user");
-        if (stored) {
-          const local = JSON.parse(stored);
-          const localId = local.uid ?? local.id;
-        if (String(localId) === String(id)) { setUser({ id: localId, name: local.name, email: local.email }); setLoading(false); return; }
+        const res = await fetch(`${apiUrl}/api/users/${id}/profile`, { cache: "no-store" });
+        if (res.ok) {
+          const body = await res.json();
+          setUser(body.data ?? body);
+          setLoading(false);
+          return;
         }
       } catch {}
-      setError("Não foi possível carregar o perfil."); setLoading(false);
+      setError("Não foi possível carregar o perfil.");
+      setLoading(false);
     }
     load();
   }, [id]);
 
-  if (loading) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#0d0d0d", color:"#aaa", fontFamily:"'Sora',sans-serif" }}>Carregando...</div>;
-  if (error)   return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", background:"#0d0d0d", color:"#f87171", fontFamily:"'Sora',sans-serif" }}>{error}</div>;
-  if (!user)   return null;
+  // Limpa o preview e success após upload
+  useEffect(() => {
+    if (!avatarSuccess) return;
+    const t = setTimeout(() => { setAvatarSuccess(false); setAvatarPreview(null); }, 3000);
+    return () => clearTimeout(t);
+  }, [avatarSuccess]);
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarError("");
+    setAvatarSuccess(false);
+    setAvatarPreview(URL.createObjectURL(file));
+    updateAvatar.mutate(file, {
+      onSuccess: (result) => {
+        setUser(prev => prev ? { ...prev, avatarUrl: result.url } : prev);
+        setAvatarSuccess(true);
+      },
+      onError: (err) => { setAvatarError(err.message); setAvatarPreview(null); },
+    });
+    e.target.value = "";
+  }
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#aaa", fontFamily: "'Sora',sans-serif" }}>
+      Carregando...
+    </div>
+  );
+  if (error) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", color: "#f87171", fontFamily: "'Sora',sans-serif" }}>
+      {error}
+    </div>
+  );
+  if (!user) return null;
+
+  const displayAvatar = avatarPreview ?? user.avatarUrl ?? null;
+  const walletBalance = user.wallet?.balance ?? 0;
 
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+        @keyframes ppSpin   { to { transform: rotate(360deg); } }
+        @keyframes ppFadeIn { from{opacity:0} to{opacity:1} }
         .pp * { font-family:'Sora',sans-serif; box-sizing:border-box; }
 
         .pp-card {
           background: #1a1a1a;
           border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 18px;
-          padding: 1.75rem;
-          margin-bottom: 1.25rem;
+          border-radius: 18px; padding: 1.75rem; margin-bottom: 1.25rem;
         }
-
         .pp-section-title {
           font-size: 13px; font-weight: 700; color: #aaa;
           text-transform: uppercase; letter-spacing: 0.08em;
@@ -71,19 +123,15 @@ export default function ProfilePage() {
           content: ''; display: block; width: 3px; height: 14px;
           background: #fd5b01; border-radius: 2px; flex-shrink: 0;
         }
-
         .pp-appoint {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 12px; padding: 1rem 1.25rem;
-          margin-bottom: 10px; transition: background 0.2s;
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px;
+          transition: background 0.2s; cursor: pointer;
         }
         .pp-appoint:hover { background: rgba(253,91,1,0.06); }
-
         .pp-config-btn {
           width: 100%; padding: 13px 16px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
           border-radius: 10px;
           font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 500;
           color: #ccc; text-align: left; cursor: pointer;
@@ -91,7 +139,6 @@ export default function ProfilePage() {
           transition: all 0.2s; margin-bottom: 8px;
         }
         .pp-config-btn:hover { background: rgba(253,91,1,0.1); border-color: rgba(253,91,1,0.3); color: #fd5b01; }
-
         .pp-wallet {
           background: linear-gradient(135deg, #fd5b01, #ff8c42);
           border-radius: 14px; padding: 16px 18px;
@@ -103,81 +150,135 @@ export default function ProfilePage() {
         }
         .pp-wallet:hover { transform: scale(1.01); box-shadow: 0 8px 32px rgba(253,91,1,0.45); }
 
-        /* MODAL */
+        /* Avatar upload */
+        .pp-avatar-wrap {
+          position: relative; width: 88px; height: 88px; flex-shrink: 0;
+          border-radius: 50%; overflow: hidden;
+          border: 3px solid rgba(253,91,1,0.4);
+          cursor: pointer;
+        }
+        .pp-avatar-wrap:hover .pp-avatar-overlay { opacity: 1; }
+        .pp-avatar-overlay {
+          position: absolute; inset: 0;
+          background: rgba(0,0,0,0.6);
+          display: flex; align-items: center; justify-content: center;
+          opacity: 0; transition: opacity 0.2s;
+          font-size: 20px;
+        }
+        .pp-avatar-spinner {
+          position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+          background: rgba(0,0,0,0.5);
+        }
+        .pp-avatar-spinner::after {
+          content: ''; width: 24px; height: 24px; border-radius: 50%;
+          border: 2.5px solid rgba(255,255,255,0.2); border-top-color: #fff;
+          animation: ppSpin 0.7s linear infinite;
+        }
+
+        /* Modal */
         .pp-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500;
           display: flex; align-items: center; justify-content: center;
           padding: 1rem; animation: ppFadeIn 0.2s ease;
         }
-        @keyframes ppFadeIn { from{opacity:0} to{opacity:1} }
         .pp-modal {
           background: #1a1a1a; border: 1px solid rgba(255,255,255,0.1);
           border-radius: 20px; padding: 2rem; width: 100%; max-width: 400px;
           position: relative; box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-          animation: ppPopIn 0.25s ease; font-family: 'Sora', sans-serif;
         }
-        @keyframes ppPopIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
         .pp-modal-close {
           position: absolute; top: 14px; right: 14px;
           background: rgba(255,255,255,0.08); border: none; border-radius: 6px;
-          padding: 6px 10px; cursor: pointer; font-size: 14px;
-          color: #aaa; transition: all 0.15s;
+          padding: 6px 10px; cursor: pointer; font-size: 14px; color: #aaa; transition: all 0.15s;
         }
         .pp-modal-close:hover { background: #fd5b01; color: #fff; }
         .pp-modal-btn {
           margin-top: 1.25rem; width: 100%; padding: 12px;
           background: #fd5b01; color: #fff; border: none; border-radius: 8px;
           font-family: 'Sora', sans-serif; font-weight: 700; font-size: 14px;
-          cursor: pointer; box-shadow: 0 4px 12px rgba(253,91,1,0.35);
-          transition: background 0.2s;
+          cursor: pointer; box-shadow: 0 4px 12px rgba(253,91,1,0.35); transition: background 0.2s;
         }
         .pp-modal-btn:hover { background: #d94d00; }
+
+        .pp-success-msg { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#4ade80; font-weight:600; animation:ppFadeIn 0.3s ease; }
       `}</style>
 
-      <div className="pp" style={{ background:"#0d0d0d", minHeight:"100vh", padding:"5rem 1.5rem 2rem" }}>
-        <div style={{ maxWidth:720, margin:"0 auto" }}>
+      <div className="pp" style={{ background: "#0d0d0d", minHeight: "100vh", padding: "5rem 1.5rem 2rem" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
           {/* HEADER */}
           <div className="pp-card">
-            <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:20 }}>
-              <div style={{
-                width:88, height:88, borderRadius:"50%",
-                background:"linear-gradient(135deg,#fd5b01,#ff8c42)",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:32, fontWeight:700, color:"#fff", flexShrink:0,
-                boxShadow:"0 4px 24px rgba(253,91,1,0.35)",
-              }}>
-                {user.name?.charAt(0).toUpperCase()}
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
+
+              {/* Avatar clicável */}
+              <div
+                className="pp-avatar-wrap"
+                onClick={() => fileInputRef.current?.click()}
+                title="Alterar foto de perfil"
+              >
+                {displayAvatar ? (
+                  <Image src={displayAvatar} fill alt="Avatar" style={{ objectFit: "cover" }} />
+                ) : (
+                  <div style={{
+                    width: "100%", height: "100%",
+                    background: "linear-gradient(135deg,#fd5b01,#ff8c42)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 32, fontWeight: 700, color: "#fff",
+                  }}>
+                    {user.name?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                {updateAvatar.isPending
+                  ? <div className="pp-avatar-spinner" />
+                  : <div className="pp-avatar-overlay">📷</div>
+                }
               </div>
-              <div style={{ flex:1 }}>
-                <h1 style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:"-0.03em", marginBottom:4 }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={handleAvatarChange}
+              />
+
+              <div style={{ flex: 1 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", marginBottom: 4 }}>
                   {user.name}
                 </h1>
-                <p style={{ fontSize:13, color:"#777", marginBottom:user.bio ? 8 : 0 }}>{user.email}</p>
+                <p style={{ fontSize: 13, color: "#777", marginBottom: user.bio ? 8 : 0 }}>{user.email}</p>
                 {user.bio && (
                   <span style={{
-                    display:"inline-block",
-                    background:"rgba(253,91,1,0.1)", border:"1px solid rgba(253,91,1,0.2)",
-                    borderRadius:100, padding:"3px 12px", fontSize:12, color:"#fd5b01",
+                    display: "inline-block",
+                    background: "rgba(253,91,1,0.1)", border: "1px solid rgba(253,91,1,0.2)",
+                    borderRadius: 100, padding: "3px 12px", fontSize: 12, color: "#fd5b01",
                   }}>
                     {user.bio}
                   </span>
                 )}
+                {avatarSuccess && (
+                  <p className="pp-success-msg" style={{ marginTop: 6 }}>✅ Foto atualizada!</p>
+                )}
+                {avatarError && (
+                  <p style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>⚠️ {avatarError}</p>
+                )}
+                <p style={{ fontSize: 10, color: "#444", marginTop: avatarSuccess || avatarError ? 0 : 6 }}>
+                  Clique na foto para alterar
+                </p>
               </div>
             </div>
 
             {/* CARTEIRA */}
             <button className="pp-wallet" onClick={() => router.push(`/users/${id}/wallet`)}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ width:42, height:42, background:"rgba(255,255,255,0.2)", borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>👛</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 42, height: 42, background: "rgba(255,255,255,0.2)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👛</div>
                 <div>
-                  <div style={{ fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.8)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:2 }}>Minha Carteira</div>
-                  <div style={{ fontSize:22, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>
-                    R$ {MOCK_SALDO.toFixed(2).replace(".",",")}
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Minha Carteira</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
+                    R$ {(walletBalance / 100).toFixed(2).replace(".", ",")}
                   </div>
                 </div>
               </div>
-              <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.9)", background:"rgba(255,255,255,0.15)", padding:"7px 14px", borderRadius:8, whiteSpace:"nowrap" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.9)", background: "rgba(255,255,255,0.15)", padding: "7px 14px", borderRadius: 8, whiteSpace: "nowrap" }}>
                 Ver carteira →
               </div>
             </button>
@@ -188,34 +289,40 @@ export default function ProfilePage() {
             <div className="pp-card">
               <div className="pp-section-title">Meus Agendamentos</div>
               {user.appointments.map(a => {
-                const sc = STATUS_CONFIG[a.status] ?? { color:"#aaa", bg:"rgba(255,255,255,0.06)" };
+                const sc = STATUS_CONFIG[a.status] ?? { color: "#aaa", bg: "rgba(255,255,255,0.06)" };
                 return (
-                  <div key={a.id} className="pp-appoint">
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                      <div>
-                        <p style={{ fontWeight:700, fontSize:14, color:"#f0f0f0", marginBottom:2 }}>{a.service}</p>
-                        <p style={{ fontSize:12, color:"#777" }}>com {a.provider}</p>
+                  <Link key={a.id} href={`/appointments/${a.id}`} style={{ textDecoration: "none" }}>
+                    <div className="pp-appoint">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: 14, color: "#f0f0f0", marginBottom: 2 }}>{a.service}</p>
+                          <p style={{ fontSize: 12, color: "#777" }}>com {a.provider}</p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: sc.color, background: sc.bg, padding: "3px 10px", borderRadius: 100, whiteSpace: "nowrap" }}>
+                          {a.status}
+                        </span>
                       </div>
-                      <span style={{ fontSize:11, fontWeight:700, color:sc.color, background:sc.bg, padding:"3px 10px", borderRadius:100, whiteSpace:"nowrap" }}>
-                        {a.status}
-                      </span>
+                      <p style={{ fontSize: 11, color: "#555", marginTop: 8 }}>📅 {a.date}</p>
                     </div>
-                    <p style={{ fontSize:11, color:"#555", marginTop:8 }}>📅 {a.date}</p>
-                  </div>
+                  </Link>
                 );
               })}
+              <Link href="/appointments" style={{ fontSize: 12, color: "#fd5b01", textDecoration: "none", display: "block", textAlign: "center", marginTop: 8 }}>
+                Ver todos os agendamentos →
+              </Link>
             </div>
           )}
 
           {/* CONFIGURAÇÕES */}
           <div className="pp-card">
             <div className="pp-section-title">Configurações</div>
+            <button className="pp-config-btn" onClick={() => fileInputRef.current?.click()}>
+              📷 Alterar foto de perfil
+            </button>
             <button className="pp-config-btn" onClick={() => setShowIndisponivel(true)}>✏️ Editar perfil</button>
             <button className="pp-config-btn" onClick={() => setShowIndisponivel(true)}>🔒 Alterar senha</button>
-            <button className="pp-config-btn" onClick={() => {
-              localStorage.removeItem("tp_user");
-              localStorage.removeItem("tp_colab");
-              localStorage.removeItem("tp_remember");
+            <button className="pp-config-btn" onClick={async () => {
+              await logout();
               window.location.href = "/login";
             }}>🚪 Sair da conta</button>
           </div>
@@ -227,9 +334,9 @@ export default function ProfilePage() {
         <div className="pp-overlay" onClick={() => setShowIndisponivel(false)}>
           <div className="pp-modal" onClick={e => e.stopPropagation()}>
             <button className="pp-modal-close" onClick={() => setShowIndisponivel(false)}>✕</button>
-            <div style={{ fontSize:32, marginBottom:12 }}>🚧</div>
-            <h3 style={{ fontSize:18, fontWeight:700, marginBottom:8, color:"#fff", letterSpacing:"-0.02em" }}>Serviço indisponível</h3>
-            <p style={{ fontSize:13, color:"#888", lineHeight:1.6 }}>Este serviço está atualmente indisponível. Em breve estará disponível!</p>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🚧</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "#fff", letterSpacing: "-0.02em" }}>Serviço indisponível</h3>
+            <p style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>Este serviço está atualmente indisponível. Em breve estará disponível!</p>
             <button className="pp-modal-btn" onClick={() => setShowIndisponivel(false)}>Entendi</button>
           </div>
         </div>

@@ -1,60 +1,47 @@
+"use client";
+
+import { useParams } from "next/navigation";
 import Image from "next/image";
 import AgendarButton from "@/components/AgendarButton";
 import AvaliarSection from "@/components/AvaliarSection";
+import { useProvider } from "@/hooks/useProviders";
 
-type User = { name: string };
-type Service = { id: string; title: string; description: string; price: number; duration: number };
-type Review = {
-  id: string; rating: number; comment: string;
-  services: { id: number; title: string };
-  user: { name: string };
-};
-type Provider = {
-  id: number; avatarUrl: string; bio: string;
-  categories: string[]; user: User;
-  services: Service[]; reviews: Review[]; images: string[];
-};
-type Props = { params: Promise<{ id: string }> };
+export default function ProviderPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const { data: provider, isLoading, isError } = useProvider(id);
 
-const S = (price: number) => [
-  { id: "1", title: "Bate-papo", description: "Sessão de 30min", price, duration: 30 },
-  { id: "2", title: "Partida / Sessão", description: "Sessão de 1h", price: price * 2, duration: 60 },
-];
-const R = (name: string) => [{ id: "1", rating: 5, comment: "Experiência incrível!", services: { id: 1, title: "Bate-papo" }, user: { name } }];
+  if (isLoading) {
+    return (
+      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <style>{`@keyframes pv-spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "pv-spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
 
-const MOCK_PROVIDERS: Record<string, Provider> = {
-  "1":  { id: 1,  avatarUrl: "/avatar.jpg",  bio: "Jogador de Futebol e CS nas horas vagas",  categories: ["Futebol","Games"],            user: { name: "Neymar Jr" },    services: S(350),  reviews: R("Ryan Charles"), images: ["/ney1.jpg","/ney2.jpeg","/ney3.jpg"] },
-  "2":  { id: 2,  avatarUrl: "/gaules.jpg",   bio: "Streamer profissional de CS:GO",           categories: ["Games","Streaming"],           user: { name: "Ronaldinho" },   services: S(280),  reviews: R("Carlos"),       images: [] },
-  "3":  { id: 3,  avatarUrl: "/caze.jpg",     bio: "Apresentador e streamer",                  categories: ["Futebol","Games","Streaming"], user: { name: "Kaká" },         services: S(220),  reviews: R("João"),         images: [] },
-  "4":  { id: 4,  avatarUrl: "/avatar.jpg",   bio: "Ícone do futebol brasileiro",              categories: ["Futebol"],                     user: { name: "Robinho" },      services: S(190),  reviews: R("Marcos"),       images: [] },
-  "5":  { id: 5,  avatarUrl: "/avatar.jpg",   bio: "O Imperador do futebol",                   categories: ["Futebol"],                     user: { name: "Adriano" },      services: S(160),  reviews: R("Lucas"),        images: [] },
-  "6":  { id: 6,  avatarUrl: "/avatar.jpg",   bio: "Atacante veloz e habilidoso",              categories: ["Futebol"],                     user: { name: "Dentinho" },     services: S(120),  reviews: R("Pedro"),        images: [] },
-  "7":  { id: 7,  avatarUrl: "/avatar.jpg",   bio: "Artilheiro da seleção",                    categories: ["Futebol"],                     user: { name: "Fred" },         services: S(110),  reviews: R("Ana"),          images: [] },
-  "8":  { id: 8,  avatarUrl: "/gaules.jpg",   bio: "O maior streamer de CS do Brasil",         categories: ["Games","Streaming"],           user: { name: "Gaules" },       services: S(200),  reviews: R("Felipe"),       images: ["/gaules1.jpg","/gaules2.jpg"] },
-  "9":  { id: 9,  avatarUrl: "/avatar.jpg",   bio: "Pro player de Free Fire",                  categories: ["Games"],                       user: { name: "Nobru" },        services: S(150),  reviews: R("Rafael"),       images: [] },
-  "10": { id: 10, avatarUrl: "/avatar.jpg",   bio: "Streamer e criador de conteúdo",           categories: ["Games","Streaming"],           user: { name: "Loud Coringa" }, services: S(130),  reviews: R("Bruno"),        images: [] },
-};
-
-async function getProvider(id: string): Promise<Provider> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-  try {
-    const res = await fetch(`${apiUrl}/providers/${id}`, { cache: "no-store" });
-    if (res.ok) return res.json();
-  } catch {}
-  const mock = MOCK_PROVIDERS[id];
-  if (mock) return mock;
-  throw new Error("Prestador não encontrado");
-}
-
-export default async function ProviderPage({ params }: Props) {
-  const { id } = await params;
-  const provider = await getProvider(id);
+  if (isError || !provider) {
+    return (
+      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, fontFamily: "'Sora', sans-serif" }}>
+        <p style={{ color: "#aaa", fontSize: 16 }}>Prestador não encontrado.</p>
+        <a href="/home" style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14 }}>← Voltar para Home</a>
+      </div>
+    );
+  }
 
   const avgRating = provider.reviews.length > 0
     ? provider.reviews.reduce((acc, r) => acc + r.rating, 0) / provider.reviews.length
-    : 0;
+    : provider.rating;
 
   const servicos = provider.services.map(s => ({ id: s.id, title: s.title }));
+
+  const reviewsForSection = provider.reviews.map(r => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    user: r.user,
+    services: { id: r.services.id ?? "", title: r.services.title },
+  }));
 
   return (
     <>
@@ -120,21 +107,6 @@ export default async function ProviderPage({ params }: Props) {
         .pv-service-price    { font-size:18px; font-weight:700; color:#fd5b01; }
         .pv-service-duration { font-size:11px; color:#666; background:rgba(255,255,255,0.07); padding:3px 10px; border-radius:100px; }
 
-        .pv-review-card {
-          background: rgba(255,255,255,0.04);
-          border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.06);
-          padding: 1.25rem; margin-bottom: 12px;
-        }
-        .pv-review-service {
-          font-size: 11px; font-weight: 700; color: #fd5b01;
-          background: rgba(253,91,1,0.1); padding: 2px 10px; border-radius: 100px;
-          display: inline-block; margin-bottom: 8px;
-          border: 1px solid rgba(253,91,1,0.2);
-        }
-        .pv-review-comment { font-size: 13px; color: #bbb; line-height: 1.6; margin-bottom: 8px; }
-        .pv-review-author  { font-size: 11px; color: #555; font-weight: 600; }
-
         .pv-rating-badge {
           display: inline-flex; align-items: center; gap: 6px;
           background: rgba(253,91,1,0.12); color: #fd5b01;
@@ -155,7 +127,7 @@ export default async function ProviderPage({ params }: Props) {
               </div>
               <div style={{ flex:1 }}>
                 <h1 style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:"-0.03em", marginBottom:4 }}>
-                  {provider.user.name}
+                  {provider.user?.name ?? "Prestador"}
                 </h1>
                 <p style={{ fontSize:13, color:"#777", marginBottom:10, lineHeight:1.5 }}>{provider.bio}</p>
                 <div className="pv-rating-badge">
@@ -187,7 +159,9 @@ export default async function ProviderPage({ params }: Props) {
           {/* SERVIÇOS */}
           <div className="pv-card">
             <div className="pv-section-title">Serviços disponíveis</div>
-            {provider.services.map(service => (
+            {provider.services.length === 0 ? (
+              <p style={{ fontSize:13, color:"#555", textAlign:"center", padding:"1rem 0" }}>Nenhum serviço disponível.</p>
+            ) : provider.services.map(service => (
               <div key={service.id} className="pv-service-card">
                 <p className="pv-service-title">{service.title}</p>
                 <p className="pv-service-desc">{service.description}</p>
@@ -196,14 +170,19 @@ export default async function ProviderPage({ params }: Props) {
                     <span className="pv-service-price">R$ {service.price}</span>
                     <span className="pv-service-duration">⏱ {service.duration} min</span>
                   </div>
-                  <AgendarButton />
+                  <AgendarButton
+                    providerId={provider.id}
+                    serviceId={service.id}
+                    serviceTitle={service.title}
+                    servicePrice={service.price}
+                  />
                 </div>
               </div>
             ))}
           </div>
 
           {/* AVALIAÇÕES */}
-          <AvaliarSection initialReviews={provider.reviews} servicos={servicos} />
+          <AvaliarSection initialReviews={reviewsForSection} servicos={servicos} />
 
         </div>
       </div>

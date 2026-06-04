@@ -51,7 +51,6 @@ export default function LoginColaboradorPage() {
       if (colab) {
         if (remember) localStorage.setItem("tp_colab_remember", JSON.stringify({email,password}));
         else localStorage.removeItem("tp_colab_remember");
-        localStorage.setItem("tp_colab", JSON.stringify({id:colab.id,name:colab.name,email:colab.email}));
         window.location.href = `/colaborador/${colab.id}/perfil`;
       } else {
         setError("E-mail ou senha incorretos.");

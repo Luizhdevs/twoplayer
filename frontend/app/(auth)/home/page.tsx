@@ -3,51 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-
-type ProviderCardType = {
-  id: number;
-  name: string;
-  avatarUrl: string;
-  rating: number;
-  price: number;
-};
-
-type Category = {
-  name: string;
-  providers: ProviderCardType[];
-};
-
-type HomeData = {
-  topProviders: ProviderCardType[];
-  categories: Category[];
-};
-
-const MOCK_DATA: HomeData = {
-  topProviders: [
-    { id: 1, name: "Neymar Jr", avatarUrl: "https://placehold.co/900x500/111/fd5b01?text=Neymar+Jr", rating: 4.9, price: 350 },
-    { id: 2, name: "Ronaldinho", avatarUrl: "https://placehold.co/900x500/111/ff8c42?text=Ronaldinho", rating: 4.8, price: 280 },
-    { id: 3, name: "Kaká", avatarUrl: "https://placehold.co/900x500/111/fd5b01?text=Kaká", rating: 4.7, price: 220 },
-    { id: 4, name: "Robinho", avatarUrl: "https://placehold.co/900x500/111/ff8c42?text=Robinho", rating: 4.6, price: 190 },
-  ],
-  categories: [
-    {
-      name: "⚽ Futebol",
-      providers: [
-        { id: 5, name: "Adriano", avatarUrl: "https://placehold.co/320x180/111/fd5b01?text=Adriano", rating: 4.5, price: 160 },
-        { id: 6, name: "Dentinho", avatarUrl: "https://placehold.co/320x180/111/fd5b01?text=Dentinho", rating: 4.3, price: 120 },
-        { id: 7, name: "Fred", avatarUrl: "https://placehold.co/320x180/111/fd5b01?text=Fred", rating: 4.2, price: 110 },
-      ],
-    },
-    {
-      name: "🎮 Games",
-      providers: [
-        { id: 8, name: "Gaules", avatarUrl: "https://placehold.co/320x180/111/ff8c42?text=Gaules", rating: 4.9, price: 200 },
-        { id: 9, name: "Nobru", avatarUrl: "https://placehold.co/320x180/111/ff8c42?text=Nobru", rating: 4.7, price: 150 },
-        { id: 10, name: "Loud Coringa", avatarUrl: "https://placehold.co/320x180/111/ff8c42?text=Coringa", rating: 4.6, price: 130 },
-      ],
-    },
-  ],
-};
+import { useHomeProviders } from "@/hooks/useProviders";
+import type { ProviderCard } from "@/services/providers.service";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -62,7 +19,7 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function ProviderCard({ provider, featured = false }: { provider: ProviderCardType; featured?: boolean }) {
+function ProviderCard({ provider, featured = false }: { provider: ProviderCard; featured?: boolean }) {
   return (
     <Link
       href={`/providers/${provider.id}`}
@@ -81,7 +38,7 @@ function ProviderCard({ provider, featured = false }: { provider: ProviderCardTy
   );
 }
 
-function SectionRow({ title, providers, accent = "#fd5b01" }: { title: string; providers: ProviderCardType[]; accent?: string }) {
+function SectionRow({ title, providers, accent = "#fd5b01" }: { title: string; providers: ProviderCard[]; accent?: string }) {
   return (
     <section className="tp-section">
       <div className="tp-section-header">
@@ -99,34 +56,38 @@ function SectionRow({ title, providers, accent = "#fd5b01" }: { title: string; p
 }
 
 export default function HomePage() {
-  const [data, setData] = useState<HomeData>(MOCK_DATA);
+  const { data, isLoading } = useHomeProviders();
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroFading, setHeroFading] = useState(false);
 
-  // Carrega dados da API; fallback = mock
-  useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-    fetch(`${apiUrl}/providers`, { cache: "no-store" })
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((d: HomeData) => setData(d))
-      .catch(() => {/* usa mock */});
-  }, []);
+  const topProviders = data?.topProviders ?? [];
+  const categories   = data?.categories ?? [];
 
-  // Rotação automática do hero a cada 5s
   const advance = useCallback(() => {
+    if (!topProviders.length) return;
     setHeroFading(true);
     setTimeout(() => {
-      setHeroIndex((i) => (i + 1) % data.topProviders.length);
+      setHeroIndex((i) => (i + 1) % topProviders.length);
       setHeroFading(false);
     }, 400);
-  }, [data.topProviders.length]);
+  }, [topProviders.length]);
 
   useEffect(() => {
+    if (!topProviders.length) return;
     const id = setInterval(advance, 5000);
     return () => clearInterval(id);
-  }, [advance]);
+  }, [advance, topProviders.length]);
 
-  const hero = data.topProviders[heroIndex];
+  const hero = topProviders[heroIndex] ?? null;
+
+  if (isLoading) {
+    return (
+      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <style>{`@keyframes tp-spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "tp-spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -176,8 +137,6 @@ export default function HomePage() {
           box-shadow: 0 4px 20px rgba(253,91,1,0.4);
         }
         .tp-hero-cta:hover { background: #e04e00; transform: translateY(-1px); }
-
-        /* dots de navegação do hero */
         .tp-hero-dots { position: absolute; bottom: 8%; right: 5%; display: flex; gap: 8px; }
         .tp-hero-dot {
           width: 8px; height: 8px; border-radius: 50%;
@@ -219,11 +178,6 @@ export default function HomePage() {
           position: relative; display: block;
         }
         .tp-card--featured { width: 260px; }
-
-        /* inner clip para bordas arredondadas nas imagens */
-        .tp-card-inner { border-radius: 10px; overflow: hidden; }
-
-        .tp-card:hover { opacity: 1; }
 
         .tp-card-thumb {
           position: relative; width: 100%; padding-top: 56.25%;
@@ -290,7 +244,7 @@ export default function HomePage() {
             </div>
             {/* dots */}
             <div className="tp-hero-dots">
-              {data.topProviders.map((_, i) => (
+              {topProviders.map((_, i) => (
                 <button
                   key={i}
                   className={`tp-hero-dot${i === heroIndex ? " active" : ""}`}
@@ -306,34 +260,43 @@ export default function HomePage() {
         <div className="tp-main">
 
           {/* TOP PRESTADORES */}
-          <section className="tp-section">
-            <div className="tp-section-header">
-              <span className="tp-section-bar" style={{ background: "#fd5b01" }} />
-              <h2 className="tp-section-title">🔥 Top Prestadores</h2>
-              <span className="tp-section-line" />
-            </div>
-            <div className="tp-featured-row">
-              {data.topProviders.map((p, i) => (
-                <Link key={p.id} href={`/providers/${p.id}`} className="tp-card tp-card--featured">
-                  <div className="tp-card-thumb">
-                    <Image src={p.avatarUrl} fill alt={p.name} className="tp-card-img" sizes="260px" />
-                    <div className="tp-card-overlay" />
-                    <div className="tp-card-price-badge">R$ {p.price}</div>
-                    <span className="tp-rank">{i + 1}</span>
-                  </div>
-                  <div className="tp-card-info">
-                    <p className="tp-card-name">{p.name}</p>
-                    <StarRating rating={p.rating} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
+          {topProviders.length > 0 && (
+            <section className="tp-section">
+              <div className="tp-section-header">
+                <span className="tp-section-bar" style={{ background: "#fd5b01" }} />
+                <h2 className="tp-section-title">🔥 Top Prestadores</h2>
+                <span className="tp-section-line" />
+              </div>
+              <div className="tp-featured-row">
+                {topProviders.map((p, i) => (
+                  <Link key={p.id} href={`/providers/${p.id}`} className="tp-card tp-card--featured">
+                    <div className="tp-card-thumb">
+                      <Image src={p.avatarUrl} fill alt={p.name} className="tp-card-img" sizes="260px" />
+                      <div className="tp-card-overlay" />
+                      <div className="tp-card-price-badge">R$ {p.price}</div>
+                      <span className="tp-rank">{i + 1}</span>
+                    </div>
+                    <div className="tp-card-info">
+                      <p className="tp-card-name">{p.name}</p>
+                      <StarRating rating={p.rating} />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* CATEGORIAS */}
-          {data.categories.map((cat, ci) => (
+          {categories.map((cat, ci) => (
             <SectionRow key={cat.name} title={cat.name} providers={cat.providers} accent={ci % 2 === 0 ? "#fd5b01" : "#ff8c42"} />
           ))}
+
+          {/* Estado vazio */}
+          {!isLoading && topProviders.length === 0 && (
+            <div style={{ textAlign: "center", padding: "4rem 0", color: "#555", fontFamily: "'Sora', sans-serif" }}>
+              <p style={{ fontSize: 16 }}>Nenhum prestador disponível no momento.</p>
+            </div>
+          )}
         </div>
       </div>
     </>

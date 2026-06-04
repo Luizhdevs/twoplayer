@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  PROVIDER
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT
+  PENDING
+  PAID
+  CONFIRMED
+  IN_PROGRESS
+  AWAITING_CLIENT_CONFIRMATION
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum EscrowStatus {
+  HELD
+  RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  WITHDRAWAL
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  APPOINTMENT
+  REVIEW
+  WALLET
+  SYSTEM
+}
+
+enum MediaCategory {
+  AVATAR
+  PROVIDER_GALLERY
+  SERVICE_GALLERY
+  DISPUTE_EVIDENCE
+  DOCUMENT
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(uuid())
+  firebaseUid String?   @unique @map("firebase_uid")
+  email       String    @unique
+  name        String
+  cpf         String?   @unique
+  birthDate   DateTime? @map("birth_date") @db.Date
+  avatarUrl   String?   @map("avatar_url")
+  bio         String?
+  role        Role      @default(USER)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  provider      Provider?
+  wallet        Wallet?
+  appointments  Appointment[]
+  reviews       Review[]
+  notifications Notification[]
+  mediaFiles    MediaFile[]
+
+  @@map("users")
+}
+
+model Provider {
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  user         User      @relation(fields: [userId], references: [id])
+  isVerified   Boolean   @default(false) @map("is_verified")
+  categories   String[]
+  rating       Decimal   @default(0) @db.Decimal(3, 2)
+  totalReviews Int       @default(0) @map("total_reviews")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  services          Service[]
+  appointments      Appointment[]
+  reviews           Review[]
+  images            ProviderImage[]
+  availability      ProviderAvailability[]
+  blocks            ProviderBlock[]
+  escrowTransactions EscrowTransaction[]
+
+  @@map("providers")
+}
+
+model ProviderAvailability {
+  id         String    @id @default(uuid())
+  providerId String    @map("provider_id")
+  provider   Provider  @relation(fields: [providerId], references: [id])
+  weekday    Int
+  startTime  String    @map("start_time") @db.VarChar(5)
+  endTime    String    @map("end_time")   @db.VarChar(5)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@unique([providerId, weekday])
+  @@index([providerId])
+  @@index([providerId, weekday])
+  @@map("provider_availability")
+}
+
+model ProviderBlock {
+  id            String    @id @default(uuid())
+  providerId    String    @map("provider_id")
+  provider      Provider  @relation(fields: [providerId], references: [id])
+  startDatetime DateTime  @map("start_datetime")
+  endDatetime   DateTime  @map("end_datetime")
+  reason        String?   @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  @@index([providerId])
+  @@index([providerId, startDatetime, endDatetime])
+  @@map("provider_blocks")
+}
+
+model ProviderImage {
+  id          String     @id @default(uuid())
+  providerId  String     @map("provider_id")
+  provider    Provider   @relation(fields: [providerId], references: [id])
+  mediaFileId String?    @unique @map("media_file_id")
+  mediaFile   MediaFile? @relation(fields: [mediaFileId], references: [id])
+  url         String
+  sortOrder   Int        @default(0) @map("sort_order")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@map("provider_images")
+}
+
+model MediaFile {
+  id         String        @id @default(uuid())
+  ownerId    String        @map("owner_id")
+  owner      User          @relation(fields: [ownerId], references: [id])
+  url        String
+  storageKey String        @map("storage_key")
+  mimeType   String?       @map("mime_type") @db.VarChar(100)
+  fileSize   Int?          @map("file_size")
+  category   MediaCategory
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  deletedAt  DateTime?     @map("deleted_at")
+
+  providerImage ProviderImage?
+
+  @@map("media_files")
+}
+
+model Service {
+  id          String    @id @default(uuid())
+  providerId  String    @map("provider_id")
+  provider    Provider  @relation(fields: [providerId], references: [id])
+  title       String
+  description String?
+  price       Int
+  duration    Int
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  appointments Appointment[]
+  reviews      Review[]
+
+  @@map("services")
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  userId      String            @map("user_id")
+  user        User              @relation(fields: [userId], references: [id])
+  serviceId   String            @map("service_id")
+  service     Service           @relation(fields: [serviceId], references: [id])
+  providerId  String            @map("provider_id")
+  provider    Provider          @relation(fields: [providerId], references: [id])
+  scheduledAt DateTime          @map("scheduled_at")
+  status      AppointmentStatus @default(PENDING_PAYMENT)
+  notes       String?
+  amount      Int
+  meetingUrl  String?           @map("meeting_url")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  review            Review?
+  payment           Payment?
+  escrowTransaction EscrowTransaction?
+  events            AppointmentEvent[]
+
+  @@index([providerId, scheduledAt])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("appointments")
+}
+
+model EscrowTransaction {
+  id            String       @id @default(uuid())
+  appointmentId String       @unique @map("appointment_id")
+  appointment   Appointment  @relation(fields: [appointmentId], references: [id])
+  paymentId     String       @unique @map("payment_id")
+  payment       Payment      @relation(fields: [paymentId], references: [id])
+  providerId    String       @map("provider_id")
+  provider      Provider     @relation(fields: [providerId], references: [id])
+  amount        Int
+  status        EscrowStatus @default(HELD)
+  releasedAt    DateTime?    @map("released_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  @@index([providerId])
+  @@index([status])
+  @@map("escrow_transactions")
+}
+
+model AppointmentEvent {
+  id            String            @id @default(uuid())
+  appointmentId String            @map("appointment_id")
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id])
+  actorId       String?           @map("actor_id")
+  actorRole     String            @map("actor_role") @db.VarChar(20)
+  action        String            @db.VarChar(100)
+  fromStatus    AppointmentStatus @map("from_status")
+  toStatus      AppointmentStatus @map("to_status")
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  @@index([appointmentId])
+  @@map("appointment_events")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  appointmentId String        @unique @map("appointment_id")
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+  externalId    String?       @map("external_id") @db.VarChar(255)
+  provider      String        @default("MERCADOPAGO") @db.VarChar(50)
+  amount        Int
+  currency      String        @default("BRL") @db.VarChar(10)
+  status        PaymentStatus @default(PENDING)
+  paymentMethod String?       @map("payment_method") @db.VarChar(50)
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  escrow EscrowTransaction?
+
+  @@index([externalId])
+  @@index([appointmentId])
+  @@map("payments")
+}
+
+model Review {
+  id            String      @id @default(uuid())
+  appointmentId String      @unique @map("appointment_id")
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id])
+  providerId    String      @map("provider_id")
+  provider      Provider    @relation(fields: [providerId], references: [id])
+  serviceId     String      @map("service_id")
+  service       Service     @relation(fields: [serviceId], references: [id])
+  rating        Int
+  comment       String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+
+  @@map("reviews")
+}
+
+model Wallet {
+  id        String    @id @default(uuid())
+  ownerId   String    @unique @map("owner_id")
+  owner     User      @relation(fields: [ownerId], references: [id])
+  balance   Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String            @id @default(uuid())
+  walletId    String            @map("wallet_id")
+  wallet      Wallet            @relation(fields: [walletId], references: [id])
+  type        TransactionType
+  amount      Int
+  description String?
+  referenceId String?           @map("reference_id")
+  status      TransactionStatus @default(COMPLETED)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("wallet_transactions")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id])
+  title     String
+  body      String?
+  type      NotificationType @default(SYSTEM)
+  readAt    DateTime?        @map("read_at")
+  data      Json?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@map("notifications")
+}

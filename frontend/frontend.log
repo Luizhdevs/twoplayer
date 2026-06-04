@@ -1,0 +1,51 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.3:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.8s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 6s (962 modules)
+ GET /login 200 in 6618ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 973ms (584 modules)
+ GET /favicon.ico 200 in 1177ms
+ GET /login 200 in 539ms
+ GET /favicon.ico 200 in 24ms
+ ○ Compiling /login-colaborador ...
+ ✓ Compiled /login-colaborador in 791ms (951 modules)
+ HEAD /login-colaborador 200 in 1376ms
+ GET /login 200 in 84ms
+ ○ Compiling /colaborador/[id]/perfil ...
+ ✓ Compiled /colaborador/[id]/perfil in 1226ms (998 modules)
+ HEAD /colaborador/1/perfil 200 in 2706ms
+ ✓ Compiled /login-colaborador in 297ms (572 modules)
+ GET /login-colaborador 200 in 898ms
+ ✓ Compiled /colaborador/[id]/perfil in 223ms (628 modules)
+ GET /colaborador/1/perfil 200 in 672ms
+ GET /colaborador/1/perfil 200 in 54ms
+ GET /colaborador/1/perfil 200 in 52ms
+ GET /colaborador/1/perfil 200 in 59ms
+ ○ Compiling /home ...
+ ✓ Compiled /home in 897ms (1015 modules)
+ GET /home 200 in 1141ms
+ GET /colaborador/1/perfil 200 in 73ms
+ GET /login 200 in 264ms
+ GET /login 200 in 73ms
+ GET /login-colaborador 200 in 82ms
+ GET /colaborador/1/perfil 200 in 111ms
+ GET /home 200 in 48ms
+ ○ Compiling /providers/[id] ...
+ ✓ Compiled /providers/[id] in 854ms (1040 modules)
+ GET /providers/3 200 in 1687ms
+ GET /colaborador/1/perfil 200 in 53ms
+ ○ Compiling /users/[id]/wallet ...
+ ✓ Compiled /users/[id]/wallet in 523ms (1047 modules)
+ GET /users/1/wallet 200 in 1238ms
+ GET /users/1/wallet 200 in 56ms
+ GET /users/1/wallet 200 in 38ms

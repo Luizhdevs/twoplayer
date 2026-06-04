@@ -3,36 +3,23 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-
-type UserInfo = { id: number; tipo: "user" | "colab" } | null;
-
-function getUserInfo(): UserInfo {
-  if (typeof window === "undefined") return null;
-  try {
-    const colab = localStorage.getItem("tp_colab");
-    if (colab) { const d = JSON.parse(colab); const id = d.uid ?? d.id; if (id) return { id, tipo: "colab" }; }
-    const user = localStorage.getItem("tp_user");
-    if (user) { const d = JSON.parse(user); const id = d.uid ?? d.id; if (id) return { id, tipo: "user" }; }
-  } catch {}
-  return null;
-}
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function Navbar() {
-  const [userInfo, setUserInfo] = useState<UserInfo>(null);
+  const { dbUser } = useAuth();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    setUserInfo(getUserInfo());
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll(); // checar posição inicial
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const profileHref = userInfo
-    ? userInfo.tipo === "colab"
-      ? `/colaborador/${userInfo.id}/perfil`
-      : `/users/${userInfo.id}/profile`
+  const profileHref = dbUser
+    ? dbUser.role === "PROVIDER"
+      ? `/colaborador/${dbUser.id}/perfil`
+      : `/users/${dbUser.id}/profile`
     : null;
 
   return (
@@ -79,6 +66,9 @@ export default function Navbar() {
           {/* LINKS */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <Link href="/home" className="tp-nav-link">Home</Link>
+            {dbUser && (
+              <Link href="/appointments" className="tp-nav-link">Agendamentos</Link>
+            )}
             {profileHref
               ? <Link href={profileHref} className="tp-nav-link">Meu Perfil</Link>
               : <span className="tp-nav-disabled">Meu Perfil</span>
