@@ -66,14 +66,21 @@ export default function LoginColaboradorPage() {
 
       // Se não tem provider ainda, cria automaticamente
       if (!providerId) {
-        const userRes = await api.get<{ data: { id: string } }>(`/users/${cred.user.uid}`).catch(() => null);
-        const userId = userRes?.data?.data?.id ?? cred.user.uid;
-        const created = await api.post<{ id: string }>("/providers", {
-          userId,
-          categories: [],
-        });
-        providerId = (created.data as any).id ?? (created.data as any).data?.id;
+        const userRes = await api.get<any>("/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null);
+        const userId = userRes?.data?.id ?? userRes?.data?.data?.id;
+        if (!userId) {
+          setError("Usuário não encontrado no sistema. Registre-se primeiro.");
+          await auth.signOut();
+          setLoading(false);
+          return;
+        }
+        const created = await api.post<any>("/providers", { userId, categories: [] });
+        providerId = created.data?.id ?? created.data?.data?.id;
       }
+
+      if (providerId) localStorage.setItem("tp_provider_id", providerId);
 
       if (!providerId) {
         setError("Erro ao criar perfil de prestador. Tente novamente.");

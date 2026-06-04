@@ -8,6 +8,7 @@ import { useAuth } from "@/providers/AuthProvider";
 export default function Navbar() {
   const { dbUser } = useAuth();
   const [scrolled, setScrolled] = useState(false);
+  const [providerId, setProviderId] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -16,9 +17,13 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    setProviderId(localStorage.getItem("tp_provider_id"));
+  }, [dbUser]);
+
   const profileHref = dbUser
-    ? dbUser.role === "PROVIDER"
-      ? `/colaborador/${dbUser.id}/perfil`
+    ? providerId
+      ? `/colaborador/${providerId}/perfil`
       : `/users/${dbUser.id}/profile`
     : null;
 
