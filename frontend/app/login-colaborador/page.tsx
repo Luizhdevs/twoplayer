@@ -58,12 +58,25 @@ export default function LoginColaboradorPage() {
       } catch { /* 409 = já existe, ok */ }
 
       // Busca perfil de provider
-      const { data } = await api.get<{ data: { id: string } | null }>("/providers/me", {
+      const { data } = await api.get<{ data: { id: string; userId: string } | null }>("/providers/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!data.data) {
-        setError("Conta não encontrada como prestador. Crie seu perfil primeiro.");
+      let providerId = data.data?.id;
+
+      // Se não tem provider ainda, cria automaticamente
+      if (!providerId) {
+        const userRes = await api.get<{ data: { id: string } }>(`/users/${cred.user.uid}`).catch(() => null);
+        const userId = userRes?.data?.data?.id ?? cred.user.uid;
+        const created = await api.post<{ id: string }>("/providers", {
+          userId,
+          categories: [],
+        });
+        providerId = (created.data as any).id ?? (created.data as any).data?.id;
+      }
+
+      if (!providerId) {
+        setError("Erro ao criar perfil de prestador. Tente novamente.");
         await auth.signOut();
         setLoading(false);
         return;
@@ -72,7 +85,7 @@ export default function LoginColaboradorPage() {
       if (remember) localStorage.setItem("tp_colab_remember", JSON.stringify({ email, password }));
       else localStorage.removeItem("tp_colab_remember");
 
-      window.location.href = `/colaborador/${data.data.id}/perfil`;
+      window.location.href = `/colaborador/${providerId}/perfil`;
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? "";
       if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
