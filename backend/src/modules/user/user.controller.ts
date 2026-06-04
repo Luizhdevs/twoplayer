@@ -36,6 +36,11 @@ export class UserController {
     return this.userService.getProfile(id);
   }
 
+  @Get('me')
+  getMe(@CurrentUser() user: DecodedIdToken) {
+    return this.userService.findByFirebaseUid(user.uid);
+  }
+
   @Patch('me/avatar')
   @UseInterceptors(
     FileInterceptor('file', {

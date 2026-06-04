@@ -62,7 +62,14 @@ async function syncUser(user: User): Promise<DbUser | null> {
     return dbUser;
   } catch {
     // POST falhou (provavelmente 409 — usuário já existe)
-    // Tenta recuperar pelo id em cache
+    // Busca pelo token Firebase via GET /users/me
+    try {
+      const { data } = await api.get<DbUser>("/users/me");
+      const dbUser = (data as any).data ?? data;
+      localStorage.setItem(uidCacheKey(user.uid), dbUser.id);
+      return dbUser;
+    } catch {}
+    // Fallback: tenta pelo id em cache
     const cachedId = localStorage.getItem(uidCacheKey(user.uid));
     if (cachedId) {
       try {
