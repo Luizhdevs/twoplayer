@@ -21,11 +21,11 @@ export function useAppointmentsByProvider(providerId: string) {
   });
 }
 
-export function useAppointment(id: string) {
+export function useAppointment(id: string, enabled = true) {
   return useQuery({
     queryKey: [...APPT_KEY, id],
     queryFn:  () => appointmentsService.getById(id),
-    enabled:  !!id,
+    enabled:  !!id && enabled,
   });
 }
 

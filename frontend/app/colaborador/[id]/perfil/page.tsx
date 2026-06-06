@@ -242,14 +242,17 @@ export default function ColaboradorPerfilPage() {
   function salvarServico() {
     if (!sTitulo || !sDesc || !sPreco || !sDur) return;
     setSErr("");
+    // sPreco está em reais (ex: "60.00") — servicesService converte para centavos internamente
+    const precoReais = parseFloat(sPreco.replace(",", "."));
+    if (isNaN(precoReais) || precoReais <= 0) { setSErr("Preço inválido."); return; }
     if (showEditServico) {
       updateService.mutate(
-        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: Math.round(parseFloat(sPreco) * 100), duration: parseInt(sDur) } },
+        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur) } },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     } else {
       createService.mutate(
-        { providerId, title: sTitulo, description: sDesc, price: Math.round(parseFloat(sPreco) * 100), duration: parseInt(sDur) },
+        { providerId, title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur) },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     }
@@ -523,8 +526,8 @@ export default function ColaboradorPerfilPage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button className="cp-btn-secondary" onClick={() => abrirEdit(s)}>✏️ Alterar</button>
-                    <button className="cp-btn-secondary" style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.3)" }} onClick={() => handleDeleteServico(s.id)}>🗑</button>
+                    <button className="cp-btn-secondary" onClick={() => abrirEdit(s)} title="Editar serviço" aria-label={`Editar serviço: ${s.title}`}>✏️ Alterar</button>
+                    <button className="cp-btn-secondary" style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.3)" }} onClick={() => handleDeleteServico(s.id)} title="Remover serviço" aria-label={`Remover serviço: ${s.title}`}>🗑 Remover</button>
                   </div>
                 </div>
               </div>
@@ -573,7 +576,8 @@ export default function ColaboradorPerfilPage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       lineHeight: 1,
                     }}
-                    title="Remover"
+                    title="Remover imagem"
+                    aria-label="Remover imagem da galeria"
                   >
                     ✕
                   </button>

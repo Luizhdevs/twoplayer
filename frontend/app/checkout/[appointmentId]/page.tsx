@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { useAuth } from "@/providers/AuthProvider";
 import { useAppointment } from "@/hooks/useAppointments";
 import { useSimulateSuccess } from "@/hooks/usePayments";
 
@@ -13,17 +14,29 @@ export default function CheckoutPage() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const router = useRouter();
 
-  const { data: appt, isLoading, isError } = useAppointment(appointmentId);
+  // Aguarda Firebase inicializar antes de disparar a query (evita 401 → redirect /login)
+  const { loading: authLoading, firebaseUser } = useAuth();
+  const { data: appt, isLoading, isError } = useAppointment(appointmentId, !authLoading && !!firebaseUser);
   const simulate = useSimulateSuccess();
 
   const [method, setMethod] = useState<PaymentMethod>("pix");
 
-  // Loading
-  if (isLoading) {
+  // Loading (auth ou dados)
+  if (authLoading || isLoading) {
     return (
       <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{`@keyframes ck-spin { to { transform: rotate(360deg); } }`}</style>
         <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "ck-spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  // Não autenticado
+  if (!firebaseUser) {
+    return (
+      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, fontFamily: "'Sora',sans-serif" }}>
+        <p style={{ color: "#aaa", fontSize: 16 }}>Faça login para continuar com o pagamento.</p>
+        <a href="/login" style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14 }}>Entrar →</a>
       </div>
     );
   }

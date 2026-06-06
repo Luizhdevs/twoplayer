@@ -6,8 +6,22 @@ export type Notification = {
   body:      string | null;
   type:      "APPOINTMENT" | "REVIEW" | "WALLET" | "SYSTEM";
   readAt:    string | null;
+  data:      Record<string, unknown> | null;
   createdAt: string;
 };
+
+export function getNotificationUrl(notif: Notification): string | null {
+  const d = notif.data;
+  if (!d) return null;
+  if (notif.type === "APPOINTMENT" && d.appointmentId) {
+    return `/appointments/${d.appointmentId}`;
+  }
+  if (notif.type === "WALLET") return null; // wallet page handled per user
+  if (notif.type === "REVIEW" && d.appointmentId) {
+    return `/appointments/${d.appointmentId}`;
+  }
+  return null;
+}
 
 export const notificationsService = {
   getAll: async (userId: string): Promise<Notification[]> => {

@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/providers/AuthProvider";
+import { useMyProviderDirect } from "@/hooks/useProviders";
 import { useAppointment, useCancelAppointment, useApproveAppointment } from "@/hooks/useAppointments";
 import type { AppointmentStatus } from "@/services/appointments.service";
 
@@ -51,9 +53,15 @@ const APPROVABLE: AppointmentStatus[]  = ["AWAITING_CLIENT_CONFIRMATION"];
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { dbUser } = useAuth();
+  const { data: myProvider } = useMyProviderDirect();
   const { data: appt, isLoading, isError } = useAppointment(id);
   const cancel  = useCancelAppointment();
   const approve = useApproveAppointment();
+
+  // Verifica se o usuário atual é o prestador deste agendamento
+  const isProvider = dbUser?.role === "PROVIDER";
+  const isAppointmentProvider = isProvider && myProvider?.id && appt?.provider?.id === myProvider.id;
 
   if (isLoading) {
     return (
@@ -133,7 +141,12 @@ export default function AppointmentDetailPage() {
 
       <div className="ad ad-page">
         <div className="ad-inner">
-          <Link href="/appointments" className="ad-back">← Meus agendamentos</Link>
+          <Link
+            href={isAppointmentProvider ? `/colaborador/${dbUser?.id}/perfil` : "/appointments"}
+            className="ad-back"
+          >
+            ← {isAppointmentProvider ? "Meu dashboard" : "Meus agendamentos"}
+          </Link>
 
           {/* PRESTADOR */}
           <div className="ad-card">
@@ -253,8 +266,8 @@ export default function AppointmentDetailPage() {
             </div>
           )}
 
-          {/* PAGAR (PENDING_PAYMENT) */}
-          {appt.status === "PENDING_PAYMENT" && (
+          {/* PAGAR (PENDING_PAYMENT) — exibe apenas para o cliente */}
+          {appt.status === "PENDING_PAYMENT" && !isAppointmentProvider && (
             <div className="ad-card">
               <div className="ad-section-label">Pagamento</div>
               <p style={{ fontSize: 13, color: "#aaa", marginBottom: 16, lineHeight: 1.6 }}>
@@ -274,6 +287,16 @@ export default function AppointmentDetailPage() {
               >
                 🔒 Pagar agora · R$ {(appt.amount / 100).toFixed(2)}
               </Link>
+            </div>
+          )}
+
+          {/* INFO PARA PRESTADOR em agendamentos aguardando pagamento */}
+          {appt.status === "PENDING_PAYMENT" && isAppointmentProvider && (
+            <div className="ad-card">
+              <div className="ad-section-label">Aguardando Pagamento</div>
+              <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
+                O cliente ainda não realizou o pagamento. O agendamento será cancelado automaticamente se o prazo expirar.
+              </p>
             </div>
           )}
 

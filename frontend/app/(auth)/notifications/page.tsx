@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNotifications, useMarkAsRead, useMarkAllAsRead } from "@/hooks/useNotifications";
+import { getNotificationUrl } from "@/services/notifications.service";
 import type { Notification } from "@/services/notifications.service";
 
 const TYPE_CONFIG: Record<Notification["type"], { icon: string; color: string }> = {
@@ -13,21 +15,33 @@ const TYPE_CONFIG: Record<Notification["type"], { icon: string; color: string }>
 };
 
 function NotifCard({ notif, onRead }: { notif: Notification; onRead: (id: string) => void }) {
-  const cfg  = TYPE_CONFIG[notif.type] ?? { icon: "🔔", color: "#aaa" };
+  const router = useRouter();
+  const cfg    = TYPE_CONFIG[notif.type] ?? { icon: "🔔", color: "#aaa" };
   const isRead = !!notif.readAt;
+  const targetUrl = getNotificationUrl(notif);
+  const isClickable = !isRead || !!targetUrl;
+
   const date = new Date(notif.createdAt).toLocaleString("pt-BR", {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
+  function handleClick() {
+    if (!isRead) onRead(notif.id);
+    if (targetUrl) router.push(targetUrl);
+  }
+
   return (
     <div
-      onClick={() => !isRead && onRead(notif.id)}
+      onClick={isClickable ? handleClick : undefined}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => e.key === "Enter" && handleClick() : undefined}
       style={{
         display: "flex", gap: 14, padding: "1rem 1.25rem",
         background: isRead ? "rgba(255,255,255,0.02)" : "#1a1a1a",
         border: `1px solid ${isRead ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.1)"}`,
         borderRadius: 14, marginBottom: 10,
-        cursor: isRead ? "default" : "pointer",
+        cursor: isClickable ? "pointer" : "default",
         transition: "background 0.2s, border-color 0.2s",
         position: "relative",
       }}
@@ -59,7 +73,12 @@ function NotifCard({ notif, onRead }: { notif: Notification; onRead: (id: string
         {notif.body && (
           <p style={{ fontSize: 12, color: "#666", lineHeight: 1.5, marginBottom: 4 }}>{notif.body}</p>
         )}
-        <p style={{ fontSize: 11, color: "#444" }}>{date}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <p style={{ fontSize: 11, color: "#444" }}>{date}</p>
+          {targetUrl && (
+            <span style={{ fontSize: 10, color: cfg.color, fontWeight: 600 }}>Ver detalhes →</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -126,8 +145,11 @@ export default function NotificationsPage() {
                   {markAllAsRead.isPending ? "Marcando..." : "✓ Marcar todas como lidas"}
                 </button>
               )}
-              <Link href={`/users/${dbUser.id}/profile`} style={{ padding:"9px 16px", background:"rgba(253,91,1,0.1)", border:"1px solid rgba(253,91,1,0.2)", borderRadius:9, color:"#fd5b01", textDecoration:"none", fontSize:12, fontWeight:600 }}>
-                ← Perfil
+              <Link
+                href={dbUser.role === "PROVIDER" ? `/colaborador/${dbUser.id}/perfil` : `/users/${dbUser.id}/profile`}
+                style={{ padding:"9px 16px", background:"rgba(253,91,1,0.1)", border:"1px solid rgba(253,91,1,0.2)", borderRadius:9, color:"#fd5b01", textDecoration:"none", fontSize:12, fontWeight:600 }}
+              >
+                ← {dbUser.role === "PROVIDER" ? "Dashboard" : "Perfil"}
               </Link>
             </div>
           </div>

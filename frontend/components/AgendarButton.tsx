@@ -82,6 +82,7 @@ export default function AgendarButton({
   const formattedDate = selectedDate ? formatDateLocal(selectedDate) : "";
 
   function handleDateChange(value: string) {
+    if (!value) return;
     if (value < today) {
       setErroData("Não é possível agendar em datas passadas.");
       return;
@@ -89,7 +90,7 @@ export default function AgendarButton({
     setErroData("");
     setSelectedDate(value);
     setSelectedSlot("");
-    if (value) setStep("time");
+    setStep("time");
   }
 
   function handleSelectSlot(slot: string) {
@@ -244,8 +245,13 @@ export default function AgendarButton({
 
                 {!loading && slots.length === 0 && (
                   <div className="ag-no-slots">
-                    <p>Este colaborador ainda não possui horários disponíveis para esta data.</p>
-                    <button className="ag-btn-ghost" onClick={() => setStep("date")}>Escolher outra data</button>
+                    <p style={{ fontSize: 22, marginBottom: 8 }}>📅</p>
+                    <p style={{ fontWeight: 600, color: "#ccc", marginBottom: 6 }}>Sem horários disponíveis</p>
+                    <p style={{ fontSize: 12, color: "#666", marginBottom: 16, lineHeight: 1.6 }}>
+                      Neste dia o prestador não tem disponibilidade ou está ausente.<br />
+                      Por favor, escolha outra data.
+                    </p>
+                    <button className="ag-btn-ghost" onClick={() => setStep("date")}>← Escolher outra data</button>
                   </div>
                 )}
 

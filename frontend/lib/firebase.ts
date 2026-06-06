@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
+  updateProfile,
   type User,
 } from 'firebase/auth';
 
@@ -21,5 +22,5 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
 
-export { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+export { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, updateProfile };
 export type { User };

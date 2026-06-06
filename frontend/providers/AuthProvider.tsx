@@ -49,12 +49,17 @@ function uidCacheKey(firebaseUid: string) {
 }
 
 async function syncUser(user: User): Promise<DbUser | null> {
+  // Lê nome pendente do cadastro (definido pela página de registro antes de onAuthStateChanged)
+  const pendingName = sessionStorage.getItem("tp_pending_name") ?? undefined;
+  if (pendingName) sessionStorage.removeItem("tp_pending_name");
+  const resolvedName = pendingName ?? user.displayName ?? user.email?.split("@")[0] ?? "Usuário";
+
   try {
     // Tenta criar o usuário (upsert não existe no backend, então tratamos o 409)
     const { data } = await api.post<{ data: DbUser }>("/users", {
       firebaseUid: user.uid,
       email:       user.email,
-      name:        user.displayName ?? user.email?.split("@")[0] ?? "Usuário",
+      name:        resolvedName,
     });
     const dbUser = data.data;
     // Cacheia o mapeamento Firebase UID → DB id para recuperação em 409

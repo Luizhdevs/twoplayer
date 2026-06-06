@@ -12,6 +12,8 @@ export default function Navbar() {
   const { data: unreadData } = useUnreadCount(dbUser?.id ?? "");
   const unread = unreadData?.unread ?? 0;
 
+  const isProvider = dbUser?.role === "PROVIDER";
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -20,7 +22,7 @@ export default function Navbar() {
   }, []);
 
   const profileHref = dbUser
-    ? dbUser.role === "PROVIDER"
+    ? isProvider
       ? `/colaborador/${dbUser.id}/perfil`
       : `/users/${dbUser.id}/profile`
     : null;
@@ -84,21 +86,36 @@ export default function Navbar() {
 
           {/* LINKS */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <Link href="/home" className="tp-nav-link">🏠<span className="tp-nav-text"> Home</span></Link>
-            {dbUser && (
-              <Link href="/appointments" className="tp-nav-link">📋<span className="tp-nav-text"> Agendamentos</span></Link>
+            <Link href="/home" className="tp-nav-link" aria-label="Home">
+              🏠<span className="tp-nav-text"> Home</span>
+            </Link>
+
+            {dbUser && isProvider && (
+              <Link href={`/colaborador/${dbUser.id}/perfil`} className="tp-nav-link" aria-label="Dashboard do prestador">
+                📊<span className="tp-nav-text"> Dashboard</span>
+              </Link>
             )}
+
+            {dbUser && !isProvider && (
+              <Link href="/appointments" className="tp-nav-link" aria-label="Meus agendamentos">
+                📋<span className="tp-nav-text"> Agendamentos</span>
+              </Link>
+            )}
+
             {dbUser && (
-              <Link href="/notifications" className="tp-nav-link">
-                🔔
+              <Link href="/notifications" className="tp-nav-link" aria-label={unread > 0 ? `${unread} notificações não lidas` : "Notificações"} title="Notificações">
+                🔔<span className="tp-nav-text"> Notificações</span>
                 {unread > 0 && (
                   <span className="tp-notif-badge">{unread > 9 ? "9+" : unread}</span>
                 )}
               </Link>
             )}
+
             {profileHref
-              ? <Link href={profileHref} className="tp-nav-link">👤<span className="tp-nav-text"> Perfil</span></Link>
-              : <span className="tp-nav-disabled">👤</span>
+              ? <Link href={profileHref} className="tp-nav-link" aria-label={isProvider ? "Meu perfil de prestador" : "Meu perfil"}>
+                  👤<span className="tp-nav-text"> Perfil</span>
+                </Link>
+              : <span className="tp-nav-disabled" aria-label="Perfil (não autenticado)">👤</span>
             }
           </div>
         </div>

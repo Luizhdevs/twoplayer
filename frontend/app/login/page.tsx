@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  updateProfile,
 } from "@/lib/firebase";
 
 type Tab   = "login" | "register";
@@ -156,9 +157,14 @@ export default function LoginPage() {
     if (!regCanSubmit) return;
     setLoginLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, regEmail, regPw);
+      // Guarda o nome ANTES de criar conta — AuthProvider lê no onAuthStateChanged
+      sessionStorage.setItem("tp_pending_name", regName.trim());
+      const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPw);
+      // Atualiza o perfil Firebase para sessões futuras
+      await updateProfile(user, { displayName: regName.trim() });
       window.location.href = "/home";
     } catch (err: unknown) {
+      sessionStorage.removeItem("tp_pending_name");
       const code = (err as { code?: string }).code ?? "";
       if (code === "auth/email-already-in-use") {
         setLoginError("Este e-mail já está cadastrado.");
