@@ -6,15 +6,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useHomeProviders } from "@/hooks/useProviders";
 import type { ProviderCard } from "@/services/providers.service";
 
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <svg key={i} width="10" height="10" viewBox="0 0 10 10" fill={i <= Math.round(rating) ? "#fd5b01" : "#444"}>
+        <svg key={i} width="10" height="10" viewBox="0 0 10 10" fill={i <= Math.round(rating) ? "#fd5b01" : "#333"}>
           <polygon points="5,0.5 6.2,3.8 9.8,3.8 6.9,5.9 8,9.2 5,7.1 2,9.2 3.1,5.9 0.2,3.8 3.8,3.8" />
         </svg>
       ))}
-      <span style={{ color: "#aaa", fontSize: 11, marginLeft: 2 }}>{rating.toFixed(1)}</span>
+      <span style={{ color: "#777", fontSize: 11, marginLeft: 3 }}>{rating.toFixed(1)}</span>
     </span>
   );
 }
@@ -26,9 +28,9 @@ function ProviderCard({ provider, featured = false }: { provider: ProviderCard; 
       className={featured ? "tp-card tp-card--featured" : "tp-card"}
     >
       <div className="tp-card-thumb">
-        <Image src={provider.avatarUrl} fill alt={provider.name} className="tp-card-img" sizes="260px" />
+        <Image src={provider.avatarUrl} fill alt={provider.name} className="tp-card-img" sizes="(max-width:600px) 180px, 260px" />
         <div className="tp-card-overlay" />
-        <div className="tp-card-price-badge">R$ {Number(provider.price).toFixed(2)}</div>
+        <div className="tp-card-price">R$ {Number(provider.price).toFixed(2)}</div>
       </div>
       <div className="tp-card-info">
         <p className="tp-card-name">{provider.name}</p>
@@ -40,7 +42,7 @@ function ProviderCard({ provider, featured = false }: { provider: ProviderCard; 
 
 function SectionRow({ title, providers, accent = "#fd5b01" }: { title: string; providers: ProviderCard[]; accent?: string }) {
   return (
-    <section className="tp-section">
+    <section className="tp-section anim-fadeUp">
       <div className="tp-section-header">
         <span className="tp-section-bar" style={{ background: accent }} />
         <h2 className="tp-section-title">{title}</h2>
@@ -55,13 +57,50 @@ function SectionRow({ title, providers, accent = "#fd5b01" }: { title: string; p
   );
 }
 
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+
+function HomeSkeleton() {
+  return (
+    <div className="tp-home">
+      {/* Hero skeleton */}
+      <div className="sk" style={{ width: "100%", height: "min(56vw, 520px)", minHeight: 280, borderRadius: 0 }} />
+
+      <div className="tp-main">
+        {[1, 2].map((s) => (
+          <div key={s} style={{ marginBottom: 44 }}>
+            {/* Section header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+              <div className="sk" style={{ width: 4, height: 22, borderRadius: 2, flexShrink: 0 }} />
+              <div className="sk sk-h16" style={{ width: 160, borderRadius: 6 }} />
+            </div>
+            {/* Cards row */}
+            <div style={{ display: "flex", gap: 12 }}>
+              {[1, 2, 3, 4].map((c) => (
+                <div key={c} style={{ flexShrink: 0, width: s === 1 ? 260 : 180, borderRadius: 10, overflow: "hidden" }}>
+                  <div className="sk" style={{ width: "100%", height: s === 1 ? 146 : 101, borderRadius: "10px 10px 0 0" }} />
+                  <div style={{ padding: "10px 10px 12px", background: "#1a1a1a", borderRadius: "0 0 10px 10px" }}>
+                    <div className="sk sk-h13" style={{ width: "75%", marginBottom: 8, borderRadius: 5 }} />
+                    <div className="sk sk-h10" style={{ width: "55%", borderRadius: 5 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
   const { data, isLoading } = useHomeProviders();
-  const [heroIndex, setHeroIndex] = useState(0);
+  const [heroIndex,  setHeroIndex]  = useState(0);
   const [heroFading, setHeroFading] = useState(false);
 
   const topProviders = data?.topProviders ?? [];
-  const categories   = data?.categories ?? [];
+  const categories   = data?.categories   ?? [];
 
   const advance = useCallback(() => {
     if (!topProviders.length) return;
@@ -74,145 +113,209 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!topProviders.length) return;
-    const id = setInterval(advance, 5000);
+    const id = setInterval(advance, 5500);
     return () => clearInterval(id);
   }, [advance, topProviders.length]);
 
   const hero = topProviders[heroIndex] ?? null;
 
-  if (isLoading) {
-    return (
-      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style>{`@keyframes tp-spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "tp-spin 0.8s linear infinite" }} />
-      </div>
-    );
-  }
+  if (isLoading) return <HomeSkeleton />;
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
-        *, *::before, *::after { box-sizing: border-box; }
-
-        .tp-home { background: #0d0d0d; min-height: 100vh; font-family: 'Sora', sans-serif; color: #fff; padding-bottom: 60px; }
+        .tp-home {
+          background: var(--bg, #0d0d0d);
+          min-height: 100vh;
+          font-family: var(--font, 'Sora', sans-serif);
+          color: #fff;
+          padding-bottom: 60px;
+        }
 
         /* ── HERO ── */
-        .tp-hero { position: relative; width: 100%; height: 56vw; max-height: 520px; min-height: 280px; overflow: hidden; }
+        .tp-hero {
+          position: relative; width: 100%;
+          height: min(58vw, 540px); min-height: 300px;
+          overflow: hidden;
+        }
         .tp-hero-img {
           position: absolute; inset: 0;
           object-fit: cover; width: 100%; height: 100%;
-          filter: brightness(0.45) saturate(1.1);
-          transition: opacity 0.4s ease;
+          filter: brightness(0.42) saturate(1.15);
+          transition: opacity 0.45s ease;
         }
         .tp-hero-img.fading { opacity: 0; }
         .tp-hero-grad {
           position: absolute; inset: 0;
           background:
-            linear-gradient(to right, rgba(13,13,13,0.95) 0%, rgba(13,13,13,0.55) 45%, transparent 75%),
-            linear-gradient(to top, #0d0d0d 0%, transparent 40%);
+            linear-gradient(to right, rgba(13,13,13,0.97) 0%, rgba(13,13,13,0.60) 42%, transparent 72%),
+            linear-gradient(to top, #0d0d0d 0%, transparent 45%);
         }
-        .tp-hero-content { position: absolute; bottom: 15%; left: 0; padding: 0 5%; max-width: 520px; }
+        .tp-hero-content {
+          position: absolute; bottom: 14%; left: 0;
+          padding: 0 5%; max-width: 540px;
+        }
         .tp-hero-badge {
           display: inline-flex; align-items: center; gap: 6px;
-          background: #fd5b01; color: #fff; font-size: 11px; font-weight: 700;
-          padding: 4px 12px; border-radius: 4px; letter-spacing: 0.08em;
-          text-transform: uppercase; margin-bottom: 14px;
+          background: var(--brand, #fd5b01); color: #fff;
+          font-size: 11px; font-weight: 700;
+          padding: 5px 14px; border-radius: 4px;
+          letter-spacing: 0.08em; text-transform: uppercase;
+          margin-bottom: 14px;
+          box-shadow: 0 2px 12px rgba(253,91,1,0.4);
         }
         .tp-hero-name {
-          font-size: clamp(26px, 4vw, 48px); font-weight: 800; line-height: 1.1;
-          letter-spacing: -0.03em; color: #fff; margin: 0 0 10px;
-          text-shadow: 0 2px 20px rgba(0,0,0,0.5);
-          transition: opacity 0.4s ease;
+          font-size: clamp(26px, 4.5vw, 52px);
+          font-weight: 800; line-height: 1.06;
+          letter-spacing: -0.035em; color: #fff;
+          margin: 0 0 12px;
+          text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+          transition: opacity 0.45s ease;
         }
         .tp-hero-name.fading { opacity: 0; }
-        .tp-hero-meta { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-        .tp-hero-rating { display: inline-flex; align-items: center; gap: 5px; color: #fd5b01; font-weight: 700; font-size: 14px; }
-        .tp-hero-price { color: #fff; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.12); padding: 4px 12px; border-radius: 6px; }
+        .tp-hero-meta {
+          display: flex; align-items: center; gap: 14px;
+          margin-bottom: 22px; flex-wrap: wrap;
+        }
+        .tp-hero-rating {
+          display: inline-flex; align-items: center; gap: 6px;
+          color: #fd5b01; font-weight: 800; font-size: 14px;
+        }
+        .tp-hero-price {
+          color: #fff; font-size: 13px; font-weight: 600;
+          background: rgba(255,255,255,0.13); padding: 5px 13px;
+          border-radius: 8px; backdrop-filter: blur(4px);
+        }
         .tp-hero-cta {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #fd5b01; color: #fff; font-family: 'Sora', sans-serif;
-          font-size: 14px; font-weight: 700; padding: 12px 28px; border-radius: 8px;
-          text-decoration: none; transition: background 0.2s, transform 0.15s;
-          box-shadow: 0 4px 20px rgba(253,91,1,0.4);
+          display: inline-flex; align-items: center; gap: 9px;
+          background: var(--brand, #fd5b01); color: #fff;
+          font-family: var(--font, 'Sora', sans-serif);
+          font-size: 14px; font-weight: 700;
+          padding: 13px 28px; border-radius: 10px;
+          text-decoration: none;
+          transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+          box-shadow: 0 4px 24px rgba(253,91,1,0.45);
         }
-        .tp-hero-cta:hover { background: #e04e00; transform: translateY(-1px); }
-        .tp-hero-dots { position: absolute; bottom: 8%; right: 5%; display: flex; gap: 8px; }
+        .tp-hero-cta:hover {
+          background: #e04e00;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 32px rgba(253,91,1,0.5);
+        }
+        .tp-hero-dots {
+          position: absolute; bottom: 7%; right: 5%;
+          display: flex; gap: 8px; align-items: center;
+        }
         .tp-hero-dot {
-          width: 8px; height: 8px; border-radius: 50%;
-          background: rgba(255,255,255,0.3); border: none; padding: 0; cursor: pointer;
-          transition: background 0.3s, transform 0.2s;
+          border: none; padding: 0; cursor: pointer;
+          transition: background 0.3s, transform 0.2s, width 0.3s;
+          border-radius: 4px; height: 4px;
         }
-        .tp-hero-dot.active { background: #fd5b01; transform: scale(1.3); }
+        .tp-hero-dot         { width: 20px; background: rgba(255,255,255,0.25); }
+        .tp-hero-dot.active  { width: 32px; background: #fd5b01; }
 
         /* ── MAIN ── */
-        .tp-main { padding: 0 5%; margin-top: -40px; position: relative; z-index: 2; }
+        .tp-main {
+          padding: 0 5%;
+          margin-top: -48px;
+          position: relative; z-index: 2;
+        }
 
-        /* ── SEÇÃO ── */
-        .tp-section { margin-bottom: 44px; }
-        .tp-section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .tp-section-bar { width: 4px; height: 22px; border-radius: 2px; flex-shrink: 0; }
-        .tp-section-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #fff; margin: 0; white-space: nowrap; }
-        .tp-section-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+        /* ── SECTION ── */
+        .tp-section { margin-bottom: 48px; }
+        .tp-section-header {
+          display: flex; align-items: center; gap: 12px;
+          margin-bottom: 18px;
+        }
+        .tp-section-bar    { width: 4px; height: 20px; border-radius: 2px; flex-shrink: 0; }
+        .tp-section-title  { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: #fff; margin: 0; white-space: nowrap; }
+        .tp-section-line   { flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
 
-        /* ── CARROSSEL ── */
+        /* ── ROWS ── */
         .tp-row, .tp-featured-row {
-          display: flex; gap: 12px; overflow-x: auto;
-          padding-bottom: 10px; scroll-snap-type: x mandatory;
+          display: flex; gap: 14px; overflow-x: auto;
+          padding-bottom: 12px; scroll-snap-type: x mandatory;
           -webkit-overflow-scrolling: touch;
         }
         .tp-row::-webkit-scrollbar,
         .tp-featured-row::-webkit-scrollbar { height: 3px; }
         .tp-row::-webkit-scrollbar-thumb,
-        .tp-featured-row::-webkit-scrollbar-thumb { background: #fd5b01; border-radius: 3px; }
+        .tp-featured-row::-webkit-scrollbar-thumb { background: rgba(253,91,1,0.5); border-radius: 3px; }
         .tp-row::-webkit-scrollbar-track,
         .tp-featured-row::-webkit-scrollbar-track { background: transparent; }
 
         /* ── CARD ── */
         .tp-card {
           flex-shrink: 0; width: 180px;
-          border-radius: 10px; overflow: visible;
-          text-decoration: none; background: #1a1a1a;
+          border-radius: 12px; overflow: visible;
+          text-decoration: none; background: var(--surface, #1a1a1a);
           scroll-snap-align: start;
           transition: transform 0.25s ease, box-shadow 0.25s ease;
           position: relative; display: block;
+          border: 1px solid rgba(255,255,255,0.06);
         }
-        .tp-card--featured { width: 260px; }
+        .tp-card--featured { width: 268px; }
+        .tp-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(253,91,1,0.2);
+        }
 
         .tp-card-thumb {
           position: relative; width: 100%; padding-top: 56.25%;
-          background: #1a1a1a; overflow: hidden;
-          border-radius: 10px 10px 0 0;
+          background: #111; overflow: hidden;
+          border-radius: 12px 12px 0 0;
         }
-        .tp-card-img { object-fit: cover; transition: transform 0.4s; }
-        .tp-card:hover .tp-card-img { transform: scale(1.05); }
+        .tp-card-img { object-fit: cover; transition: transform 0.5s ease; }
+        .tp-card:hover .tp-card-img { transform: scale(1.06); }
         .tp-card-overlay {
           position: absolute; inset: 0;
-          background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%);
+          background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 55%);
         }
-        .tp-card-price-badge {
+        .tp-card-price {
           position: absolute; top: 8px; right: 8px;
-          background: rgba(13,13,13,0.85); border: 1px solid rgba(253,91,1,0.4);
-          color: #fd5b01; font-size: 11px; font-weight: 700;
-          padding: 3px 8px; border-radius: 5px;
-          backdrop-filter: blur(4px); font-family: 'Sora', sans-serif;
+          background: rgba(13,13,13,0.88);
+          border: 1px solid rgba(253,91,1,0.35);
+          color: #fd5b01; font-size: 11px; font-weight: 800;
+          padding: 4px 9px; border-radius: 6px;
+          backdrop-filter: blur(6px);
+          font-family: var(--font, 'Sora', sans-serif);
         }
         .tp-card-info {
-          padding: 10px 10px 12px;
-          display: flex; flex-direction: column; gap: 5px;
-          background: #1a1a1a;
-          border-radius: 0 0 10px 10px;
+          padding: 10px 12px 13px;
+          display: flex; flex-direction: column; gap: 6px;
+          background: var(--surface, #1a1a1a);
+          border-radius: 0 0 12px 12px;
         }
-        .tp-card-name { font-size: 13px; font-weight: 600; color: #f0f0f0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tp-card-name {
+          font-size: 13px; font-weight: 700; color: #f0f0f0;
+          margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
 
-        /* rank */
+        /* ── RANK NUMBER ── */
         .tp-rank {
-          position: absolute; bottom: 44px; left: 8px;
-          font-size: 42px; font-weight: 800;
-          color: rgba(255,255,255,0.1); line-height: 1;
-          font-family: 'Sora', sans-serif;
+          position: absolute; bottom: 46px; left: 8px;
+          font-size: 44px; font-weight: 800;
+          color: rgba(255,255,255,0.09); line-height: 1;
+          font-family: var(--font, 'Sora', sans-serif);
           pointer-events: none; user-select: none;
-          text-shadow: -2px 0 0 rgba(253,91,1,0.25);
+          text-shadow: -2px 0 0 rgba(253,91,1,0.20);
+        }
+
+        /* ── EMPTY STATE ── */
+        .tp-empty {
+          text-align: center; padding: 5rem 1rem;
+          color: var(--t3, #666);
+          font-family: var(--font, 'Sora', sans-serif);
+          animation: tp-fadeUp 0.4s ease both;
+        }
+        .tp-empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.5; }
+        .tp-empty-title { font-size: 18px; font-weight: 700; color: var(--t2, #aaa); margin-bottom: 8px; }
+        .tp-empty-desc  { font-size: 14px; color: var(--t3, #666); line-height: 1.6; }
+
+        @media (max-width: 480px) {
+          .tp-main { padding: 0 4%; margin-top: -32px; }
+          .tp-card { width: 160px; }
+          .tp-card--featured { width: 240px; }
+          .tp-hero-content { padding: 0 4%; max-width: 90%; }
         }
       `}</style>
 
@@ -232,7 +335,12 @@ export default function HomePage() {
               <div className="tp-hero-badge">🔥 Destaque da semana</div>
               <h1 className={`tp-hero-name${heroFading ? " fading" : ""}`}>{hero.name}</h1>
               <div className="tp-hero-meta">
-                <span className="tp-hero-rating">⭐ {hero.rating.toFixed(1)}</span>
+                <span className="tp-hero-rating">
+                  <svg width="14" height="14" viewBox="0 0 10 10" fill="#fd5b01">
+                    <polygon points="5,0.5 6.2,3.8 9.8,3.8 6.9,5.9 8,9.2 5,7.1 2,9.2 3.1,5.9 0.2,3.8 3.8,3.8" />
+                  </svg>
+                  {hero.rating.toFixed(1)}
+                </span>
                 <span className="tp-hero-price">R$ {Number(hero.price).toFixed(2)} / sessão</span>
               </div>
               <Link href={`/providers/${hero.id}`} className="tp-hero-cta">
@@ -242,14 +350,13 @@ export default function HomePage() {
                 </svg>
               </Link>
             </div>
-            {/* dots */}
             <div className="tp-hero-dots">
               {topProviders.map((_, i) => (
                 <button
                   key={i}
                   className={`tp-hero-dot${i === heroIndex ? " active" : ""}`}
                   onClick={() => { setHeroFading(true); setTimeout(() => { setHeroIndex(i); setHeroFading(false); }, 400); }}
-                  aria-label={`Ir para destaque ${i + 1}`}
+                  aria-label={`Destaque ${i + 1}`}
                 />
               ))}
             </div>
@@ -261,7 +368,7 @@ export default function HomePage() {
 
           {/* TOP PRESTADORES */}
           {topProviders.length > 0 && (
-            <section className="tp-section">
+            <section className="tp-section anim-fadeUp">
               <div className="tp-section-header">
                 <span className="tp-section-bar" style={{ background: "#fd5b01" }} />
                 <h2 className="tp-section-title">🔥 Top Prestadores</h2>
@@ -271,9 +378,9 @@ export default function HomePage() {
                 {topProviders.map((p, i) => (
                   <Link key={p.id} href={`/providers/${p.id}`} className="tp-card tp-card--featured">
                     <div className="tp-card-thumb">
-                      <Image src={p.avatarUrl} fill alt={p.name} className="tp-card-img" sizes="260px" />
+                      <Image src={p.avatarUrl} fill alt={p.name} className="tp-card-img" sizes="268px" />
                       <div className="tp-card-overlay" />
-                      <div className="tp-card-price-badge">R$ {p.price}</div>
+                      <div className="tp-card-price">R$ {p.price}</div>
                       <span className="tp-rank">{i + 1}</span>
                     </div>
                     <div className="tp-card-info">
@@ -288,13 +395,20 @@ export default function HomePage() {
 
           {/* CATEGORIAS */}
           {categories.map((cat, ci) => (
-            <SectionRow key={cat.name} title={cat.name} providers={cat.providers} accent={ci % 2 === 0 ? "#fd5b01" : "#ff8c42"} />
+            <SectionRow
+              key={cat.name}
+              title={cat.name}
+              providers={cat.providers}
+              accent={ci % 2 === 0 ? "#fd5b01" : "#a78bfa"}
+            />
           ))}
 
-          {/* Estado vazio */}
+          {/* Empty state */}
           {!isLoading && topProviders.length === 0 && (
-            <div style={{ textAlign: "center", padding: "4rem 0", color: "#555", fontFamily: "'Sora', sans-serif" }}>
-              <p style={{ fontSize: 16 }}>Nenhum prestador disponível no momento.</p>
+            <div className="tp-empty">
+              <div className="tp-empty-icon">🎮</div>
+              <p className="tp-empty-title">Nenhum prestador disponível</p>
+              <p className="tp-empty-desc">Ainda não há prestadores cadastrados.<br />Volte em breve!</p>
             </div>
           )}
         </div>

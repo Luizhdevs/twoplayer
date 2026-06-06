@@ -9,20 +9,18 @@ import { useMyProviderDirect } from "@/hooks/useProviders";
 import { useAppointment, useCancelAppointment, useApproveAppointment } from "@/hooks/useAppointments";
 import type { AppointmentStatus } from "@/services/appointments.service";
 
-// ── Status config ─────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-  PENDING_PAYMENT:              { label: "Aguardando pagamento",              color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  EXPIRED:                      { label: "Agendamento expirado",              color: "#6b7280", bg: "rgba(107,114,128,0.12)" },
-  PENDING:                      { label: "Pendente",                          color: "#3b82f6", bg: "rgba(59,130,246,0.12)" },
-  PAID:                         { label: "Aguardando confirmação do colaborador", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CONFIRMED:                    { label: "Reunião confirmada",                color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  IN_PROGRESS:                  { label: "Atendimento em andamento",          color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  AWAITING_CLIENT_CONFIRMATION: { label: "Aguardando sua aprovação",          color: "#fd5b01", bg: "rgba(253,91,1,0.12)" },
-  COMPLETED:                    { label: "Atendimento concluído",             color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  CANCELLED:                    { label: "Cancelado",                         color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  REFUNDED:                     { label: "Reembolsado",                       color: "#9ca3af", bg: "rgba(156,163,175,0.12)" },
-  DISPUTED:                     { label: "Em disputa",                        color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string; border: string }> = {
+  PENDING_PAYMENT:              { label: "Aguardando pagamento",              color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.25)" },
+  EXPIRED:                      { label: "Agendamento expirado",              color: "#6b7280", bg: "rgba(107,114,128,0.10)", border: "rgba(107,114,128,0.20)" },
+  PENDING:                      { label: "Pendente",                          color: "#60a5fa", bg: "rgba(96,165,250,0.10)",  border: "rgba(96,165,250,0.25)"  },
+  PAID:                         { label: "Aguardando confirmação",            color: "#4ade80", bg: "rgba(74,222,128,0.10)", border: "rgba(74,222,128,0.25)" },
+  CONFIRMED:                    { label: "Reunião confirmada",                color: "#4ade80", bg: "rgba(74,222,128,0.10)", border: "rgba(74,222,128,0.25)" },
+  IN_PROGRESS:                  { label: "Atendimento em andamento",          color: "#a78bfa", bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.25)" },
+  AWAITING_CLIENT_CONFIRMATION: { label: "Aguardando sua aprovação",          color: "#fd5b01", bg: "rgba(253,91,1,0.10)",  border: "rgba(253,91,1,0.25)"  },
+  COMPLETED:                    { label: "Atendimento concluído",             color: "#4ade80", bg: "rgba(74,222,128,0.10)", border: "rgba(74,222,128,0.25)" },
+  CANCELLED:                    { label: "Cancelado",                         color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.22)" },
+  REFUNDED:                     { label: "Reembolsado",                       color: "#9ca3af", bg: "rgba(156,163,175,0.10)", border: "rgba(156,163,175,0.20)" },
+  DISPUTED:                     { label: "Em disputa",                        color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.22)" },
 };
 
 function useMeetingCountdown(scheduledAt: string, durationMin = 60) {
@@ -31,11 +29,9 @@ function useMeetingCountdown(scheduledAt: string, durationMin = 60) {
     const t = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(t);
   }, []);
-
-  const start = new Date(scheduledAt).getTime();
-  const end   = start + durationMin * 60 * 1000;
+  const start  = new Date(scheduledAt).getTime();
+  const end    = start + durationMin * 60 * 1000;
   const openAt = start - 15 * 60 * 1000;
-
   if (now >= openAt && now <= end + 2 * 60 * 60 * 1000) return { state: "active" as const };
   if (now < openAt) {
     const diffMs = openAt - now;
@@ -47,9 +43,7 @@ function useMeetingCountdown(scheduledAt: string, durationMin = 60) {
 }
 
 const CANCELLABLE: AppointmentStatus[] = ["PENDING_PAYMENT", "PENDING", "PAID", "CONFIRMED"];
-const APPROVABLE: AppointmentStatus[]  = ["AWAITING_CLIENT_CONFIRMATION"];
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+const APPROVABLE:  AppointmentStatus[] = ["AWAITING_CLIENT_CONFIRMATION"];
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -59,34 +53,33 @@ export default function AppointmentDetailPage() {
   const cancel  = useCancelAppointment();
   const approve = useApproveAppointment();
 
-  // Verifica se o usuário atual é o prestador deste agendamento
-  const isProvider = dbUser?.role === "PROVIDER";
+  const isProvider            = dbUser?.role === "PROVIDER";
   const isAppointmentProvider = isProvider && myProvider?.id && appt?.provider?.id === myProvider.id;
 
   if (isLoading) {
     return (
-      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style>{`@keyframes ad-spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "ad-spin 0.8s linear infinite" }} />
+      <div className="page-loader">
+        <div className="tp-spinner tp-spinner-lg" />
       </div>
     );
   }
 
   if (isError || !appt) {
     return (
-      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, fontFamily: "'Sora', sans-serif" }}>
-        <p style={{ color: "#f87171", fontSize: 16 }}>Agendamento não encontrado.</p>
-        <Link href="/appointments" style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14 }}>← Meus agendamentos</Link>
+      <div className="page-loader">
+        <span style={{ fontSize: 40 }}>😕</span>
+        <p style={{ color: "#f87171", fontSize: 15, fontFamily: "var(--font)" }}>Agendamento não encontrado.</p>
+        <Link href="/appointments" style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14, fontFamily: "var(--font)" }}>← Meus agendamentos</Link>
       </div>
     );
   }
 
-  const statusCfg     = STATUS_CONFIG[appt.status] ?? { label: appt.status, color: "#aaa", bg: "rgba(255,255,255,0.08)" };
-  const providerName  = appt.provider?.user?.name ?? "Prestador";
-  const avatarUrl     = appt.provider?.user?.avatarUrl ?? null;
-  const canCancel     = CANCELLABLE.includes(appt.status);
-  const canApprove    = APPROVABLE.includes(appt.status);
-  const meetingCountdown = useMeetingCountdown(appt.scheduledAt, appt.service?.duration ?? 60);
+  const statusCfg    = STATUS_CONFIG[appt.status] ?? { label: appt.status, color: "#aaa", bg: "rgba(255,255,255,0.08)", border: "rgba(255,255,255,0.12)" };
+  const providerName = appt.provider?.user?.name ?? "Prestador";
+  const avatarUrl    = appt.provider?.user?.avatarUrl ?? null;
+  const canCancel    = CANCELLABLE.includes(appt.status);
+  const canApprove   = APPROVABLE.includes(appt.status);
+  const meetingCountdown   = useMeetingCountdown(appt.scheduledAt, appt.service?.duration ?? 60);
   const showMeetingSection = !!appt.meetingUrl && !["PENDING_PAYMENT","EXPIRED","CANCELLED","REFUNDED","DISPUTED"].includes(appt.status);
 
   const scheduledDate = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {
@@ -104,69 +97,133 @@ export default function AppointmentDetailPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
-        .ad * { font-family:'Sora',sans-serif; box-sizing:border-box; }
-        .ad-page { background:#0d0d0d; min-height:100vh; padding:5rem 1.5rem 2rem; }
-        .ad-inner { max-width:600px; margin:0 auto; }
-        .ad-back { display:inline-flex; align-items:center; gap:6px; color:#555; font-size:13px; text-decoration:none; margin-bottom:1.5rem; transition:color 0.2s; }
-        .ad-back:hover { color:#fd5b01; }
+        .ad * { font-family: var(--font,'Sora',sans-serif); box-sizing: border-box; }
+        .ad-page { background: var(--bg,#0d0d0d); min-height: 100vh; padding: 5.5rem 1.5rem 3rem; }
+        .ad-inner { max-width: 620px; margin: 0 auto; }
+
         .ad-card {
-          background:#1a1a1a;
-          border:1px solid rgba(255,255,255,0.07);
-          border-radius:18px; padding:1.75rem;
-          margin-bottom:1rem;
+          background: var(--surface,#1a1a1a);
+          border: 1px solid var(--border,rgba(255,255,255,0.07));
+          border-radius: 18px; padding: 1.5rem;
+          margin-bottom: 1rem;
+          animation: tp-fadeUp 0.3s ease both;
         }
-        .ad-section-label {
-          font-size:11px; font-weight:700; color:#555;
-          text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px;
-          display:flex; align-items:center; gap:8px;
+        .ad-sec-label {
+          font-size: 11px; font-weight: 700; color: var(--t3,#666);
+          text-transform: uppercase; letter-spacing: 0.08em;
+          display: flex; align-items: center; gap: 8px;
+          margin-bottom: 1rem;
         }
-        .ad-section-label::before { content:''; width:3px; height:12px; background:#fd5b01; border-radius:2px; }
+        .ad-sec-label::before { content:''; width:3px; height:12px; background:#fd5b01; border-radius:2px; }
+
         .ad-row { display:flex; justify-content:space-between; align-items:flex-start; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
         .ad-row:last-child { border-bottom:none; padding-bottom:0; }
-        .ad-row-label { font-size:12px; color:#666; }
-        .ad-row-value { font-size:13px; color:#e0e0e0; font-weight:500; text-align:right; max-width:60%; }
-        .ad-price     { font-size:20px; font-weight:800; color:#fd5b01; }
-        .ad-cancel-btn {
-          width:100%; padding:13px; background:rgba(248,113,113,0.08);
-          border:1px solid rgba(248,113,113,0.25);
-          border-radius:10px; color:#f87171;
-          font-family:'Sora',sans-serif; font-size:14px; font-weight:700;
-          cursor:pointer; transition:background 0.2s, border-color 0.2s;
+        .ad-row-label { font-size:12px; color:var(--t3,#666); }
+        .ad-row-value { font-size:13px; color:var(--t2,#aaa); font-weight:500; text-align:right; max-width:62%; }
+        .ad-price { font-size:22px; font-weight:800; color:var(--brand,#fd5b01); }
+
+        .ad-status-chip {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 11px; font-weight: 700;
+          padding: 4px 12px; border-radius: 100px;
+          border-width: 1px; border-style: solid;
         }
-        .ad-cancel-btn:hover:not(:disabled) { background:rgba(248,113,113,0.15); border-color:rgba(248,113,113,0.4); }
-        .ad-cancel-btn:disabled { opacity:0.4; cursor:not-allowed; }
-        .ad-cancel-err { font-size:12px; color:#f87171; text-align:center; margin-top:8px; }
+        .ad-status-chip::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+
+        /* Cancel / Approve buttons */
+        .ad-action-btn {
+          width: 100%; padding: 13px 16px;
+          border-radius: 10px;
+          font-family: var(--font,'Sora',sans-serif); font-size: 14px; font-weight: 700;
+          cursor: pointer; transition: background 0.2s, opacity 0.2s;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          border: 1px solid;
+        }
+        .ad-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .ad-btn-approve {
+          background: rgba(74,222,128,0.1); color: #4ade80; border-color: rgba(74,222,128,0.3);
+          margin-bottom: 10px;
+        }
+        .ad-btn-approve:hover:not(:disabled) { background: rgba(74,222,128,0.18); }
+        .ad-btn-cancel {
+          background: rgba(248,113,113,0.08); color: #f87171; border-color: rgba(248,113,113,0.25);
+        }
+        .ad-btn-cancel:hover:not(:disabled) { background: rgba(248,113,113,0.16); }
+
+        /* Pay now */
+        .ad-pay-btn {
+          display: flex; align-items: center; justify-content: center; gap: 9px;
+          width: 100%; padding: 15px 20px;
+          background: var(--brand,#fd5b01); color: #fff;
+          text-decoration: none; border-radius: 12px;
+          font-family: var(--font,'Sora',sans-serif); font-size: 15px; font-weight: 800;
+          box-shadow: 0 6px 24px rgba(253,91,1,0.4);
+          transition: background 0.2s, transform 0.15s;
+        }
+        .ad-pay-btn:hover { background: #e04e00; transform: translateY(-1px); }
+
+        /* Meeting */
+        .ad-meet-btn {
+          display: flex; align-items: center; justify-content: center; gap: 9px;
+          width: 100%; padding: 14px;
+          background: rgba(74,222,128,0.1);
+          border: 1px solid rgba(74,222,128,0.3);
+          border-radius: 12px; color: #4ade80;
+          font-family: var(--font,'Sora',sans-serif); font-size: 14px; font-weight: 700;
+          text-decoration: none; transition: background 0.2s;
+        }
+        .ad-meet-btn:hover { background: rgba(74,222,128,0.16); }
+
+        /* Status message */
+        .ad-msg { font-size: 13px; color: var(--t2,#aaa); line-height: 1.6; margin-bottom: 16px; }
+        .ad-err { font-size: 12px; color: #f87171; text-align: center; margin-top: 8px; }
+        .ad-ok  { font-size: 12px; color: #4ade80; text-align: center; margin-top: 8px; }
+
+        @media (max-width: 480px) {
+          .ad-page { padding: 5rem 1rem 2.5rem; }
+        }
       `}</style>
 
       <div className="ad ad-page">
         <div className="ad-inner">
+
           <Link
             href={isAppointmentProvider ? `/colaborador/${dbUser?.id}/perfil` : "/appointments"}
-            className="ad-back"
+            className="ds-back"
           >
-            ← {isAppointmentProvider ? "Meu dashboard" : "Meus agendamentos"}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            {isAppointmentProvider ? "Meu dashboard" : "Meus agendamentos"}
           </Link>
+
+          {/* STATUS HEADER */}
+          <div className="ad-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <p style={{ fontSize: 12, color: "var(--t3)", marginBottom: 6 }}>Status do agendamento</p>
+              <span className="ad-status-chip" style={{ color: statusCfg.color, background: statusCfg.bg, borderColor: statusCfg.border }}>
+                {statusCfg.label}
+              </span>
+            </div>
+            <p style={{ fontSize: 26, fontWeight: 800, color: "#fd5b01", letterSpacing: "-.03em" }}>
+              R$ {(appt.amount / 100).toFixed(2)}
+            </p>
+          </div>
 
           {/* PRESTADOR */}
           <div className="ad-card">
-            <div className="ad-section-label">Prestador</div>
+            <div className="ad-sec-label">Prestador</div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", position: "relative", flexShrink: 0, border: "2px solid rgba(253,91,1,0.4)", background: "#111" }}>
+              <div className="ds-av ds-av-circle ds-av-56" style={{ border: "2.5px solid rgba(253,91,1,0.4)" }}>
                 {avatarUrl
                   ? <Image src={avatarUrl} fill alt={providerName} style={{ objectFit: "cover" }} />
-                  : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#fd5b01,#ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 700 }}>
-                      {providerName[0]?.toUpperCase()}
-                    </div>
+                  : providerName[0]?.toUpperCase()
                 }
               </div>
               <div>
-                <p style={{ fontSize: 17, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{providerName}</p>
-                <Link
-                  href={`/providers/${appt.provider?.id}`}
-                  style={{ fontSize: 12, color: "#fd5b01", textDecoration: "none" }}
-                >
-                  Ver perfil →
+                <p style={{ fontSize: 17, fontWeight: 700, color: "#fff", marginBottom: 4 }}>{providerName}</p>
+                <Link href={`/providers/${appt.provider?.id}`} style={{ fontSize: 12, color: "#fd5b01", textDecoration: "none" }}>
+                  Ver perfil público →
                 </Link>
               </div>
             </div>
@@ -174,44 +231,20 @@ export default function AppointmentDetailPage() {
 
           {/* DETALHES */}
           <div className="ad-card">
-            <div className="ad-section-label">Detalhes do agendamento</div>
+            <div className="ad-sec-label">Detalhes</div>
 
             <div className="ad-row">
               <span className="ad-row-label">Serviço</span>
               <span className="ad-row-value">{appt.service?.title ?? "—"}</span>
             </div>
-
             <div className="ad-row">
               <span className="ad-row-label">Data</span>
               <span className="ad-row-value" style={{ textTransform: "capitalize" }}>{scheduledDate}</span>
             </div>
-
             <div className="ad-row">
               <span className="ad-row-label">Horário</span>
               <span className="ad-row-value">{scheduledTime}</span>
             </div>
-
-            <div className="ad-row">
-              <span className="ad-row-label">Status</span>
-              <span style={{
-                display: "inline-block",
-                background: statusCfg.bg,
-                color: statusCfg.color,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "3px 10px",
-                borderRadius: 100,
-                border: `1px solid ${statusCfg.color}33`,
-              }}>
-                {statusCfg.label}
-              </span>
-            </div>
-
-            <div className="ad-row">
-              <span className="ad-row-label">Valor</span>
-              <span className="ad-price">R$ {(appt.amount / 100).toFixed(2)}</span>
-            </div>
-
             {appt.service?.duration && (
               <div className="ad-row">
                 <span className="ad-row-label">Duração</span>
@@ -220,141 +253,125 @@ export default function AppointmentDetailPage() {
             )}
           </div>
 
-          {/* LINK DA REUNIÃO */}
+          {/* REUNIÃO */}
           {showMeetingSection && (
-            <div className="ad-card">
-              <div className="ad-section-label">Reunião online</div>
+            <div className="ad-card" style={{ animationDelay: "0.1s" }}>
+              <div className="ad-sec-label">Reunião online</div>
               {meetingCountdown.state === "active" && (
                 <>
-                  <p style={{ fontSize: 12, color: "#4ade80", marginBottom: 14, lineHeight: 1.6 }}>
-                    🟢 A reunião está disponível agora!
-                  </p>
-                  <a
-                    href={appt.meetingUrl!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                      width: "100%", padding: 14,
-                      background: "rgba(74,222,128,0.1)",
-                      border: "1px solid rgba(74,222,128,0.3)",
-                      borderRadius: 10, color: "#4ade80",
-                      fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700,
-                      textDecoration: "none",
-                    }}
-                  >
-                    🎥 Entrar na Reunião
+                  <div className="ds-alert ds-alert-success" style={{ marginBottom: 14 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    A reunião está disponível agora! Clique para entrar.
+                  </div>
+                  <a href={appt.meetingUrl!} target="_blank" rel="noopener noreferrer" className="ad-meet-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                    </svg>
+                    Entrar na Reunião
                   </a>
                 </>
               )}
               {meetingCountdown.state === "soon" && (
                 <div style={{ textAlign: "center", padding: "0.75rem 0" }}>
-                  <p style={{ fontSize: 28, marginBottom: 8 }}>⏰</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
-                    Reunião disponível em {meetingCountdown.label}
+                  <div style={{ fontSize: 32, marginBottom: 10 }}>⏰</div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
+                    Disponível em {meetingCountdown.label}
                   </p>
-                  <p style={{ fontSize: 12, color: "#666" }}>
-                    O botão de acesso aparece 15 minutos antes do horário agendado.
+                  <p style={{ fontSize: 12, color: "var(--t3)" }}>
+                    O botão de acesso aparece 15 minutos antes do horário.
                   </p>
                 </div>
               )}
               {meetingCountdown.state === "ended" && (
-                <p style={{ fontSize: 12, color: "#666", textAlign: "center", padding: "0.5rem 0" }}>
+                <p style={{ fontSize: 13, color: "var(--t3)", textAlign: "center", padding: "0.5rem 0" }}>
                   A janela de acesso à reunião foi encerrada.
                 </p>
               )}
             </div>
           )}
 
-          {/* PAGAR (PENDING_PAYMENT) — exibe apenas para o cliente */}
+          {/* PAGAR — cliente */}
           {appt.status === "PENDING_PAYMENT" && !isAppointmentProvider && (
-            <div className="ad-card">
-              <div className="ad-section-label">Pagamento</div>
-              <p style={{ fontSize: 13, color: "#aaa", marginBottom: 16, lineHeight: 1.6 }}>
-                Este agendamento aguarda confirmação do pagamento. Finalize o pagamento para garantir sua reserva.
+            <div className="ad-card" style={{ animationDelay: "0.1s" }}>
+              <div className="ad-sec-label">Pagamento pendente</div>
+              <p className="ad-msg">
+                Este agendamento aguarda o pagamento. Complete o pagamento para garantir sua reserva.
               </p>
-              <Link
-                href={`/checkout/${appt.id}`}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: "100%", padding: 14,
-                  background: "#fd5b01", color: "#fff", textDecoration: "none",
-                  borderRadius: 10,
-                  fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700,
-                  boxShadow: "0 4px 20px rgba(253,91,1,0.4)",
-                  transition: "background 0.2s",
-                }}
-              >
-                🔒 Pagar agora · R$ {(appt.amount / 100).toFixed(2)}
+              <Link href={`/checkout/${appt.id}`} className="ad-pay-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Pagar agora · R$ {(appt.amount / 100).toFixed(2)}
               </Link>
             </div>
           )}
 
-          {/* INFO PARA PRESTADOR em agendamentos aguardando pagamento */}
+          {/* INFO — prestador */}
           {appt.status === "PENDING_PAYMENT" && isAppointmentProvider && (
-            <div className="ad-card">
-              <div className="ad-section-label">Aguardando Pagamento</div>
-              <p style={{ fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>
+            <div className="ad-card" style={{ animationDelay: "0.1s" }}>
+              <div className="ad-sec-label">Aguardando pagamento</div>
+              <div className="ds-alert ds-alert-warn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
                 O cliente ainda não realizou o pagamento. O agendamento será cancelado automaticamente se o prazo expirar.
-              </p>
+              </div>
             </div>
           )}
 
           {/* AÇÕES */}
           {(canApprove || canCancel) && (
-            <div className="ad-card">
-              <div className="ad-section-label">Ações</div>
+            <div className="ad-card" style={{ animationDelay: "0.15s" }}>
+              <div className="ad-sec-label">Ações</div>
 
-              {/* Aprovar execução (cliente confirma que o serviço foi realizado) */}
               {canApprove && (
                 <>
-                  <p style={{ fontSize: 12, color: "#aaa", marginBottom: 10, lineHeight: 1.5 }}>
+                  <p className="ad-msg">
                     O prestador finalizou o atendimento. Confirme se o serviço foi realizado para liberar o pagamento.
                   </p>
                   <button
-                    style={{
-                      width: "100%", padding: 13, marginBottom: 10,
-                      background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.3)",
-                      borderRadius: 10, color: "#4ade80",
-                      fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700,
-                      cursor: approve.isPending ? "not-allowed" : "pointer",
-                      opacity: approve.isPending ? 0.5 : 1,
-                      transition: "opacity 0.2s",
-                    }}
+                    className="ad-action-btn ad-btn-approve"
                     onClick={() => approve.mutate(appt.id)}
                     disabled={approve.isPending}
                   >
-                    {approve.isPending ? "Aprovando..." : "✅ Aprovar Execução"}
+                    {approve.isPending ? (
+                      <><div className="tp-spinner tp-spinner-sm" /> Aprovando...</>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Aprovar execução do serviço
+                      </>
+                    )}
                   </button>
-                  {approve.error && (
-                    <p className="ad-cancel-err">⚠️ {approve.error.message}</p>
-                  )}
-                  {approve.isSuccess && (
-                    <p style={{ fontSize: 12, color: "#4ade80", textAlign: "center", marginBottom: 10 }}>
-                      Execução aprovada. Pagamento liberado ao prestador.
-                    </p>
-                  )}
+                  {approve.error   && <p className="ad-err">⚠️ {approve.error.message}</p>}
+                  {approve.isSuccess && <p className="ad-ok">✓ Execução aprovada. Pagamento liberado.</p>}
                 </>
               )}
 
-              {/* Cancelar */}
               {canCancel && (
                 <>
                   <button
-                    className="ad-cancel-btn"
+                    className="ad-action-btn ad-btn-cancel"
                     onClick={handleCancel}
                     disabled={cancel.isPending}
                   >
-                    {cancel.isPending ? "Cancelando..." : "Cancelar agendamento"}
+                    {cancel.isPending ? (
+                      <><div className="tp-spinner tp-spinner-sm" /> Cancelando...</>
+                    ) : (
+                      <>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Cancelar agendamento
+                      </>
+                    )}
                   </button>
-                  {cancel.error && (
-                    <p className="ad-cancel-err">⚠️ {cancel.error.message}</p>
-                  )}
-                  {cancel.isSuccess && (
-                    <p style={{ fontSize: 12, color: "#4ade80", textAlign: "center", marginTop: 8 }}>
-                      Agendamento cancelado.
-                    </p>
-                  )}
+                  {cancel.error   && <p className="ad-err">⚠️ {cancel.error.message}</p>}
+                  {cancel.isSuccess && <p className="ad-ok">Agendamento cancelado.</p>}
                 </>
               )}
             </div>

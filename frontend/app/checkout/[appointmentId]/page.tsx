@@ -24,9 +24,33 @@ export default function CheckoutPage() {
   // Loading (auth ou dados)
   if (authLoading || isLoading) {
     return (
-      <div style={{ background: "#0d0d0d", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style>{`@keyframes ck-spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "ck-spin 0.8s linear infinite" }} />
+      <div style={{ background: "var(--bg,#0d0d0d)", minHeight: "100vh", padding: "3rem 1.5rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ width: "100%", maxWidth: 480 }}>
+          <div className="sk" style={{ width: 140, height: 12, borderRadius: 6, marginBottom: "1.5rem" }} />
+          <div className="sk" style={{ width: 180, height: 24, borderRadius: 8, margin: "0 auto 8px" }} />
+          <div className="sk" style={{ width: 140, height: 12, borderRadius: 6, margin: "0 auto 2rem" }} />
+          <div style={{ background: "#1a1a1a", borderRadius: 18, border: "1px solid rgba(255,255,255,0.07)", padding: "1.5rem", marginBottom: "1rem" }}>
+            <div className="sk sk-h10" style={{ width: 140, marginBottom: "1rem", borderRadius: 6 }} />
+            <div style={{ display: "flex", gap: 12, marginBottom: "1rem" }}>
+              <div className="sk sk-circle" style={{ width: 44, height: 44, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="sk sk-h16" style={{ width: "60%", marginBottom: 8, borderRadius: 6 }} />
+                <div className="sk sk-h10" style={{ width: "40%", borderRadius: 5 }} />
+              </div>
+            </div>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="sk sk-h10" style={{ width: 70, borderRadius: 5 }} />
+                <div className="sk sk-h10" style={{ width: 120, borderRadius: 5 }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ background: "#1a1a1a", borderRadius: 18, border: "1px solid rgba(255,255,255,0.07)", padding: "1.5rem", marginBottom: "1rem" }}>
+            <div className="sk sk-h10" style={{ width: 140, marginBottom: "1rem", borderRadius: 6 }} />
+            {[1, 2].map(i => <div key={i} className="sk sk-r-lg" style={{ height: 64, marginBottom: 10 }} />)}
+          </div>
+          <div className="sk" style={{ width: "100%", height: 52, borderRadius: 12 }} />
+        </div>
       </div>
     );
   }
@@ -89,11 +113,10 @@ export default function CheckoutPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
         @keyframes ck-spin   { to { transform: rotate(360deg); } }
         @keyframes ck-fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .ck * { font-family:'Sora',sans-serif; box-sizing:border-box; }
-        .ck-page { background:#0d0d0d; min-height:100vh; padding:3rem 1.5rem; display:flex; flex-direction:column; align-items:center; }
+        .ck * { font-family: var(--font,'Sora',sans-serif); box-sizing:border-box; }
+        .ck-page { background: var(--bg,#0d0d0d); min-height:100vh; padding:3rem 1.5rem; display:flex; flex-direction:column; align-items:center; }
         .ck-inner { width:100%; max-width:480px; }
         .ck-back { display:inline-flex; align-items:center; gap:6px; color:#555; font-size:13px; text-decoration:none; margin-bottom:1.5rem; transition:color 0.2s; }
         .ck-back:hover { color:#fd5b01; }
@@ -106,24 +129,25 @@ export default function CheckoutPage() {
 
         /* Cards */
         .ck-card {
-          background:#1a1a1a;
-          border:1px solid rgba(255,255,255,0.07);
+          background: var(--surface,#1a1a1a);
+          border: 1px solid var(--border,rgba(255,255,255,0.07));
           border-radius:18px; padding:1.5rem;
           margin-bottom:1rem;
+          animation: ck-fadeIn 0.3s ease both;
         }
         .ck-section-label {
-          font-size:11px; font-weight:700; color:#555;
+          font-size:11px; font-weight:700; color: var(--t3,#555);
           text-transform:uppercase; letter-spacing:0.08em;
           margin-bottom:1rem; display:flex; align-items:center; gap:8px;
         }
-        .ck-section-label::before { content:''; width:3px; height:12px; background:#fd5b01; border-radius:2px; }
+        .ck-section-label::before { content:''; display:block; width:3px; height:12px; background:#fd5b01; border-radius:2px; flex-shrink:0; }
 
         /* Resumo do agendamento */
         .ck-summary-row { display:flex; justify-content:space-between; align-items:flex-start; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
         .ck-summary-row:last-child { border-bottom:none; padding-bottom:0; }
-        .ck-summary-label { font-size:12px; color:#666; }
-        .ck-summary-value { font-size:13px; color:#e0e0e0; font-weight:500; text-align:right; max-width:65%; }
-        .ck-amount { font-size:24px; font-weight:800; color:#fd5b01; }
+        .ck-summary-label { font-size:12px; color: var(--t3,#666); }
+        .ck-summary-value { font-size:13px; color: var(--t1,#e0e0e0); font-weight:500; text-align:right; max-width:65%; }
+        .ck-amount { font-size:24px; font-weight:800; color: var(--brand,#fd5b01); }
 
         /* Seleção de método */
         .ck-method {
