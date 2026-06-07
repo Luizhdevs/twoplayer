@@ -26,6 +26,7 @@ export function useAppointment(id: string, enabled = true) {
     queryKey: [...APPT_KEY, id],
     queryFn:  () => appointmentsService.getById(id),
     enabled:  !!id && enabled,
+    retry:    false,
   });
 }
 

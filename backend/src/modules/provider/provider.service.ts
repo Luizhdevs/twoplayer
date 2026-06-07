@@ -22,18 +22,26 @@ export class ProviderService {
   async getHome() {
     const providers = await this.repo.findAll();
 
-    const formatted = providers.map((p) => ({
-      id: p.id,
-      name: p.user.name,
-      avatarUrl: p.user.avatarUrl ?? '/avatar.jpg',
-      rating: Number(p.rating),
-      price: this.getBasePrice(p.services),
-      categories: p.categories,
-    }));
+    const formatted = providers.map((p) => {
+      // displayCategories: categorias dos serviços (exibidas no card)
+      // categories: união provider + serviços (usadas para busca/filtro)
+      const serviceCategories = [...new Set(p.services.flatMap((s) => s.categories))];
+      const searchCategories  = [...new Set([...p.categories, ...serviceCategories])];
+      return {
+        id: p.id,
+        name: p.user.name,
+        avatarUrl: p.user.avatarUrl ?? '/avatar.jpg',
+        rating: Number(p.rating),
+        price: this.getBasePrice(p.services),
+        displayCategories: serviceCategories,
+        categories: searchCategories,
+      };
+    });
 
     return {
       topProviders: formatted.slice(0, 6),
       categories: this.groupByCategory(formatted),
+      allProviders: formatted,
     };
   }
 

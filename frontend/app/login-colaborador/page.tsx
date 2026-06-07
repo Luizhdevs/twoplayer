@@ -280,7 +280,7 @@ export default function LoginColaboradorPage() {
                 <label className="lc-label">E-mail</label>
                 <div className="lc-input-wrap">
                   <IconEmail />
-                  <input className="lc-input" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                  <input className="lc-input" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" suppressHydrationWarning />
                 </div>
               </div>
 

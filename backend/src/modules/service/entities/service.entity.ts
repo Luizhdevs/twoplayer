@@ -5,6 +5,7 @@ export class ServiceEntity {
   description: string | null;
   price: number;
   duration: number;
+  categories: string[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

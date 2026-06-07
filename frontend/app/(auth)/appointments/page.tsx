@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppointmentsByUser } from "@/hooks/useAppointments";
 import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
@@ -167,7 +169,14 @@ const SECTIONS: { title: string; statuses: AppointmentStatus[]; emptyMsg: string
 
 export default function AppointmentsPage() {
   const { dbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { data: appointments, isLoading, isError } = useAppointmentsByUser(dbUser?.id ?? "");
+
+  useEffect(() => {
+    if (!authLoading && dbUser?.role === "PROVIDER") {
+      router.replace(`/colaborador/${dbUser.id}/perfil`);
+    }
+  }, [authLoading, dbUser, router]);
 
   if (authLoading || isLoading) return <AppointmentsSkeleton />;
 

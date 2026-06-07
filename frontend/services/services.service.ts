@@ -6,6 +6,7 @@ export type Service = {
   description: string;
   price:       number;
   duration:    number;
+  categories:  string[];
   providerId:  string;
   isActive:    boolean;
 };
@@ -16,6 +17,7 @@ export type CreateServiceInput = {
   description?: string;
   price:       number;
   duration:    number;
+  categories?: string[];
 };
 
 export type UpdateServiceInput = Partial<Omit<CreateServiceInput, "providerId">>;

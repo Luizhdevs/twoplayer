@@ -25,10 +25,18 @@ export class FirebaseAuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Token não fornecido');
 
-    // Modo dev: sem credenciais Firebase configuradas — aceita qualquer token
+    // Modo dev: sem credenciais Firebase configuradas — decodifica payload JWT sem verificar assinatura
     const hasFirebaseCreds = !!process.env.FIREBASE_PROJECT_ID && !!process.env.FIREBASE_CLIENT_EMAIL;
     if (!hasFirebaseCreds) {
-      (req as any).user = { uid: token, email: 'dev@twoplayers.com' };
+      try {
+        const payloadB64 = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+        const uid = payload.user_id ?? payload.sub ?? token;
+        const email = payload.email ?? 'dev@twoplayers.com';
+        (req as any).user = { uid, email };
+      } catch {
+        (req as any).user = { uid: token, email: 'dev@twoplayers.com' };
+      }
       return true;
     }
 

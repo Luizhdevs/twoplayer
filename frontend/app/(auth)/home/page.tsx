@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/providers/AuthProvider";
 import { useHomeProviders } from "@/hooks/useProviders";
 import type { ProviderCard } from "@/services/providers.service";
 
@@ -95,9 +97,18 @@ function HomeSkeleton() {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const { dbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { data, isLoading } = useHomeProviders();
   const [heroIndex,  setHeroIndex]  = useState(0);
   const [heroFading, setHeroFading] = useState(false);
+
+  // Prestadores não acessam a home de clientes — vão direto ao dashboard
+  useEffect(() => {
+    if (!authLoading && dbUser?.role === "PROVIDER") {
+      router.replace(`/colaborador/${dbUser.id}/perfil`);
+    }
+  }, [authLoading, dbUser, router]);
 
   const topProviders = data?.topProviders ?? [];
   const categories   = data?.categories   ?? [];
@@ -119,6 +130,10 @@ export default function HomePage() {
 
   const hero = topProviders[heroIndex] ?? null;
 
+  // Bloqueia renderização até auth resolver — evita flash de conteúdo antes do redirect
+  if (authLoading) return <HomeSkeleton />;
+  // Provider será redirecionado pelo useEffect — não renderiza home
+  if (dbUser?.role === "PROVIDER") return null;
   if (isLoading) return <HomeSkeleton />;
 
   return (
@@ -141,15 +156,15 @@ export default function HomePage() {
         .tp-hero-img {
           position: absolute; inset: 0;
           object-fit: cover; width: 100%; height: 100%;
-          filter: brightness(0.42) saturate(1.15);
+          filter: brightness(0.65) saturate(1.15);
           transition: opacity 0.45s ease;
         }
         .tp-hero-img.fading { opacity: 0; }
         .tp-hero-grad {
           position: absolute; inset: 0;
           background:
-            linear-gradient(to right, rgba(13,13,13,0.97) 0%, rgba(13,13,13,0.60) 42%, transparent 72%),
-            linear-gradient(to top, #0d0d0d 0%, transparent 45%);
+            linear-gradient(to right, rgba(13,13,13,0.88) 0%, rgba(13,13,13,0.45) 45%, transparent 75%),
+            linear-gradient(to top, #0d0d0d 0%, transparent 50%);
         }
         .tp-hero-content {
           position: absolute; bottom: 14%; left: 0;
@@ -373,6 +388,9 @@ export default function HomePage() {
                 <span className="tp-section-bar" style={{ background: "#fd5b01" }} />
                 <h2 className="tp-section-title">🔥 Top Prestadores</h2>
                 <span className="tp-section-line" />
+                <Link href="/feed" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#fd5b01", textDecoration: "none", whiteSpace: "nowrap", fontFamily: "var(--font,'Sora',sans-serif)" }}>
+                  Ver todos →
+                </Link>
               </div>
               <div className="tp-featured-row">
                 {topProviders.map((p, i) => (

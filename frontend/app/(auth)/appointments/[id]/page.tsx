@@ -26,9 +26,11 @@ const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; b
 function useMeetingCountdown(scheduledAt: string, durationMin = 60) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
+    if (!scheduledAt) return;
     const t = setInterval(() => setNow(Date.now()), 10000);
     return () => clearInterval(t);
-  }, []);
+  }, [scheduledAt]);
+  if (!scheduledAt) return { state: "ended" as const };
   const start  = new Date(scheduledAt).getTime();
   const end    = start + durationMin * 60 * 1000;
   const openAt = start - 15 * 60 * 1000;
@@ -54,7 +56,10 @@ export default function AppointmentDetailPage() {
   const approve = useApproveAppointment();
 
   const isProvider            = dbUser?.role === "PROVIDER";
-  const isAppointmentProvider = isProvider && myProvider?.id && appt?.provider?.id === myProvider.id;
+  const isAppointmentProvider = isProvider && !!myProvider?.id && appt?.provider?.id === myProvider.id;
+
+  // Must be called before any early returns — Rules of Hooks
+  const meetingCountdown = useMeetingCountdown(appt?.scheduledAt ?? "", appt?.service?.duration ?? 60);
 
   if (isLoading) {
     return (
@@ -65,11 +70,13 @@ export default function AppointmentDetailPage() {
   }
 
   if (isError || !appt) {
+    const backHref  = isProvider && dbUser ? `/colaborador/${dbUser.id}/perfil` : "/appointments";
+    const backLabel = isProvider ? "← Meu dashboard" : "← Meus agendamentos";
     return (
       <div className="page-loader">
         <span style={{ fontSize: 40 }}>😕</span>
         <p style={{ color: "#f87171", fontSize: 15, fontFamily: "var(--font)" }}>Agendamento não encontrado.</p>
-        <Link href="/appointments" style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14, fontFamily: "var(--font)" }}>← Meus agendamentos</Link>
+        <Link href={backHref} style={{ color: "#fd5b01", textDecoration: "none", fontSize: 14, fontFamily: "var(--font)" }}>{backLabel}</Link>
       </div>
     );
   }
@@ -79,7 +86,6 @@ export default function AppointmentDetailPage() {
   const avatarUrl    = appt.provider?.user?.avatarUrl ?? null;
   const canCancel    = CANCELLABLE.includes(appt.status);
   const canApprove   = APPROVABLE.includes(appt.status);
-  const meetingCountdown   = useMeetingCountdown(appt.scheduledAt, appt.service?.duration ?? 60);
   const showMeetingSection = !!appt.meetingUrl && !["PENDING_PAYMENT","EXPIRED","CANCELLED","REFUNDED","DISPUTED"].includes(appt.status);
 
   const scheduledDate = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {

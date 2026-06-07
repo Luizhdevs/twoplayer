@@ -11,6 +11,7 @@ import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, 
 import { useWallet } from "@/hooks/useWallet";
 import { useServicesByProvider, useCreateService, useUpdateService, useDeleteService } from "@/hooks/useServices";
 import { useReviewsByProvider } from "@/hooks/useReviews";
+import { usersService } from "@/services/users.service";
 import type { Service } from "@/services/services.service";
 import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
 
@@ -187,18 +188,21 @@ export default function ColaboradorPerfilPage() {
   // Imagens recém-adicionadas nesta sessão (com ID para remoção)
   const [addedImages, setAddedImages] = useState<{ id: string; url: string }[]>([]);
   const [uploadErr, setUploadErr]     = useState("");
+  const [avatarMenu, setAvatarMenu]   = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [colab, setColab]               = useState<Colaborador | null>(null);
   const [showIndisponivel, setShowIndisp] = useState(false);
   const [showAddServico, setShowAddServico] = useState(false);
   const [showEditServico, setShowEditServico] = useState<Service | null>(null);
 
-  const [sTitulo, setSTitulo] = useState("");
-  const [sDesc,   setSDesc]   = useState("");
-  const [sPreco,  setSPreco]  = useState("");
-  const [sDur,    setSDur]    = useState("");
-  const [sOk,     setSOk]     = useState(false);
-  const [sErr,    setSErr]    = useState("");
+  const [sTitulo, setSTitulo]   = useState("");
+  const [sDesc,   setSDesc]     = useState("");
+  const [sPreco,  setSPreco]    = useState("");
+  const [sDur,    setSDur]      = useState("");
+  const [sCats,   setSCats]     = useState<string[]>([]);
+  const [sOk,     setSOk]       = useState(false);
+  const [sErr,    setSErr]      = useState("");
 
   // Serviços e reviews reais via API
   const { data: servicos = [], isLoading: servicosLoading } = useServicesByProvider(providerId);
@@ -234,32 +238,35 @@ export default function ColaboradorPerfilPage() {
     setSDesc(s.description);
     setSPreco((s.price / 100).toFixed(2));
     setSDur(String(s.duration));
+    setSCats(s.categories ?? []);
     setSOk(false); setSErr("");
   }
   function abrirAdd() {
-    setShowAddServico(true); setSTitulo(""); setSDesc(""); setSPreco(""); setSDur(""); setSOk(false); setSErr("");
+    setShowAddServico(true); setSTitulo(""); setSDesc(""); setSPreco(""); setSDur(""); setSCats([]); setSOk(false); setSErr("");
+  }
+  function toggleCat(cat: string) {
+    setSCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   }
   function salvarServico() {
     if (!sTitulo || !sDesc || !sPreco || !sDur) return;
     setSErr("");
-    // sPreco está em reais (ex: "60.00") — servicesService converte para centavos internamente
     const precoReais = parseFloat(sPreco.replace(",", "."));
     if (isNaN(precoReais) || precoReais <= 0) { setSErr("Preço inválido."); return; }
     if (showEditServico) {
       updateService.mutate(
-        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur) } },
+        { id: showEditServico.id, input: { title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur), categories: sCats } },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     } else {
       createService.mutate(
-        { providerId, title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur) },
+        { providerId, title: sTitulo, description: sDesc, price: precoReais, duration: parseInt(sDur), categories: sCats },
         { onSuccess: () => setSOk(true), onError: (e) => setSErr(e.message) },
       );
     }
   }
   function fecharServico() {
     setShowAddServico(false); setShowEditServico(null); setSOk(false); setSErr("");
-    setSTitulo(""); setSDesc(""); setSPreco(""); setSDur("");
+    setSTitulo(""); setSDesc(""); setSPreco(""); setSDur(""); setSCats([]);
   }
   function handleDeleteServico(serviceId: string) {
     if (!confirm("Remover este serviço?")) return;
@@ -279,17 +286,45 @@ export default function ColaboradorPerfilPage() {
     e.target.value = "";
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setAvatarMenu(false);
+    setAvatarUploading(true);
+    try {
+      const { url } = await usersService.updateAvatar(file);
+      setColab(prev => prev ? { ...prev, avatarUrl: url } : prev);
+    } catch {
+      // silently ignore — UI stays as-is
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setAvatarMenu(false);
+    setColab(prev => prev ? { ...prev, avatarUrl: undefined } : prev);
+  }
+
   function handleRemoveGalleryImage(imageId: string) {
     removeGallery.mutate(imageId, {
       onSuccess: () => setAddedImages(prev => prev.filter(i => i.id !== imageId)),
     });
   }
 
-  if (!colab || authLoading) return (
+  // Redireciona clientes para home — esta rota é exclusiva de prestadores
+  useEffect(() => {
+    if (!authLoading && dbUser && dbUser.role !== "PROVIDER") {
+      router.replace("/home");
+    }
+  }, [authLoading, dbUser, router]);
+
+  if (authLoading || !colab || (dbUser && dbUser.role !== "PROVIDER")) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", fontFamily: "'Sora',sans-serif", flexDirection: "column", gap: 16 }}>
       <style>{`@keyframes cp-spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "cp-spin 0.8s linear infinite" }} />
-      <span style={{ color: "#555", fontSize: 13 }}>Carregando perfil...</span>
+      <span style={{ color: "#555", fontSize: 13 }}>Carregando...</span>
     </div>
   );
 
@@ -335,6 +370,8 @@ export default function ColaboradorPerfilPage() {
         .cp-gallery-item { border-radius:12px; overflow:hidden; aspect-ratio:1/1; position:relative; background:#111; }
         .cp-foto-add { border-radius:12px; aspect-ratio:1/1; background:rgba(255,255,255,0.03); border:2px dashed rgba(253,91,1,0.25); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; gap:4px; }
         .cp-foto-add:hover { border-color:#fd5b01; background:rgba(253,91,1,0.06); }
+        button:hover .cp-avatar-overlay, button:focus .cp-avatar-overlay { opacity:1 !important; }
+        .cp-menu-item:hover { background:rgba(255,255,255,0.06); }
         .cp-foto-add span { font-size:22px; }
         .cp-foto-add p { font-size:10px; font-weight:600; color:#fd5b01; }
 
@@ -398,8 +435,49 @@ export default function ColaboradorPerfilPage() {
           {/* HEADER */}
           <div className="cp-card">
             <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 20 }}>
-              <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg,#fd5b01,#ff8c42)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#fff", flexShrink: 0, boxShadow: "0 4px 24px rgba(253,91,1,0.35)" }}>
-                {colab.name.charAt(0)}
+              {/* Avatar clicável */}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <button
+                  onClick={() => setAvatarMenu(v => !v)}
+                  style={{ width: 88, height: 88, borderRadius: "50%", border: "none", padding: 0, cursor: avatarUploading ? "wait" : "pointer", background: "linear-gradient(135deg,#fd5b01,#ff8c42)", overflow: "hidden", position: "relative", boxShadow: "0 4px 24px rgba(253,91,1,0.35)" }}
+                  aria-label="Alterar foto de perfil"
+                >
+                  {colab.avatarUrl ? (
+                    <Image src={colab.avatarUrl} alt={colab.name} fill style={{ objectFit: "cover" }} sizes="88px" />
+                  ) : (
+                    <span style={{ fontSize: 32, fontWeight: 700, color: "#fff" }}>{colab.name.charAt(0)}</span>
+                  )}
+                  {/* overlay câmera */}
+                  <span style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", opacity: avatarUploading ? 1 : 0, transition: "opacity .2s" }} className="cp-avatar-overlay">
+                    {avatarUploading
+                      ? <span style={{ width: 20, height: 20, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "cpSpin .7s linear infinite" }} />
+                      : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    }
+                  </span>
+                </button>
+
+                {/* Menu dropdown */}
+                {avatarMenu && !avatarUploading && (
+                  <>
+                    <div onClick={() => setAvatarMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                    <div style={{ position: "absolute", top: 96, left: 0, zIndex: 100, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, overflow: "hidden", minWidth: 160, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#f0f0f0", transition: "background .15s" }} className="cp-menu-item">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        Trocar foto
+                        <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={handleAvatarUpload} />
+                      </label>
+                      {colab.avatarUrl && (
+                        <button onClick={handleRemoveAvatar} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 16px", width: "100%", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#f87171", textAlign: "left", transition: "background .15s" }} className="cp-menu-item">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                          Remover foto
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* input oculto — necessário para "Trocar foto" via label */}
+                <input id="avatar-upload-hidden" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={handleAvatarUpload} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
@@ -520,10 +598,17 @@ export default function ColaboradorPerfilPage() {
                   <div style={{ flex: 1 }}>
                     <p className="cp-servico-titulo">{s.title}</p>
                     <p className="cp-servico-desc">{s.description}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <span className="cp-preco">R$ {(s.price / 100).toFixed(2)}</span>
                       <span className="cp-dur">⏱ {s.duration} min</span>
                     </div>
+                    {(s.categories ?? []).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                        {s.categories.map(c => (
+                          <span key={c} style={{ fontSize: 10, fontWeight: 600, color: "#fd5b01", background: "rgba(253,91,1,0.1)", border: "1px solid rgba(253,91,1,0.2)", padding: "2px 8px", borderRadius: 10 }}>{c}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                     <button className="cp-btn-secondary" onClick={() => abrirEdit(s)} title="Editar serviço" aria-label={`Editar serviço: ${s.title}`}>✏️ Alterar</button>
@@ -552,8 +637,9 @@ export default function ColaboradorPerfilPage() {
             <div className="cp-gallery">
               {/* Imagens existentes (sem ID disponível → sem botão de remoção) */}
               {(providerProfile?.images ?? []).map((url, i) => {
+                if (!url) return null;
                 const isAdded = addedImages.some(a => a.url === url);
-                if (isAdded) return null; // evita duplicatas com addedImages
+                if (isAdded) return null;
                 return (
                   <div key={`existing-${i}`} className="cp-gallery-item">
                     <Image src={url} alt="Foto" fill style={{ objectFit: "cover" }} />
@@ -562,7 +648,7 @@ export default function ColaboradorPerfilPage() {
               })}
 
               {/* Imagens adicionadas nesta sessão (com botão de remoção) */}
-              {addedImages.map(img => (
+              {addedImages.map(img => img.url ? (
                 <div key={img.id} className="cp-gallery-item" style={{ position: "relative" }}>
                   <Image src={img.url} alt="Foto" fill style={{ objectFit: "cover" }} />
                   <button
@@ -582,7 +668,7 @@ export default function ColaboradorPerfilPage() {
                     ✕
                   </button>
                 </div>
-              ))}
+              ) : null)}
 
               {/* Adicionar nova foto */}
               <label className="cp-foto-add" htmlFor="foto-upload" style={{ opacity: addGallery.isPending ? 0.5 : 1, cursor: addGallery.isPending ? "not-allowed" : "pointer" }}>
@@ -665,6 +751,26 @@ export default function ColaboradorPerfilPage() {
                   <div><label className="cp-label">Preço (R$)</label><input className="cp-input" type="number" placeholder="50.00" step="0.01" value={sPreco} onChange={e => setSPreco(e.target.value)} /></div>
                   <div><label className="cp-label">Duração (min)</label><input className="cp-input" type="number" placeholder="30" value={sDur} onChange={e => setSDur(e.target.value)} /></div>
                 </div>
+                <label className="cp-label">Categorias</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 4 }}>
+                  {["Games","Esports","Futebol","Basquete","Tênis","Vôlei","Streaming","YouTube","TikTok","Coaching","Mentoria","Bate-papo","Autógrafo","Lives","Música","Fitness"].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleCat(cat)}
+                      style={{
+                        padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                        background: sCats.includes(cat) ? "rgba(253,91,1,0.15)" : "rgba(255,255,255,0.05)",
+                        border: sCats.includes(cat) ? "1.5px solid rgba(253,91,1,0.5)" : "1.5px solid rgba(255,255,255,0.1)",
+                        color: sCats.includes(cat) ? "#fd5b01" : "#888",
+                        transition: "all .15s",
+                      }}
+                    >{cat}</button>
+                  ))}
+                </div>
+                {sCats.length > 0 && (
+                  <p style={{ fontSize: 11, color: "#666", marginBottom: 8 }}>{sCats.length} categoria{sCats.length > 1 ? "s" : ""} selecionada{sCats.length > 1 ? "s" : ""}</p>
+                )}
                 {sErr && <p style={{ fontSize: 12, color: "#f87171", marginTop: 8 }}>{sErr}</p>}
                 <button className="modal-confirm" disabled={!sTitulo || !sDesc || !sPreco || !sDur || createService.isPending || updateService.isPending} onClick={salvarServico}>
                   {(createService.isPending || updateService.isPending) ? "Salvando..." : showEditServico ? "Salvar alterações →" : "Adicionar serviço →"}

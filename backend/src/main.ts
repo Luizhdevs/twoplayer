@@ -2,6 +2,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as admin from 'firebase-admin';
+import * as express from 'express';
+import * as path from 'path';
 
 async function bootstrap() {
   if (!admin.apps.length) {
@@ -35,6 +37,10 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+
+  // Serve arquivos do LocalStorageService em modo dev (sem R2)
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  app.use('/uploads', express.static(uploadsDir));
 
   await app.listen(process.env.PORT ?? 3001);
 }

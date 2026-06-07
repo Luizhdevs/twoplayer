@@ -53,6 +53,14 @@ function IconUser() {
     </svg>
   );
 }
+function IconCompass() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88 16.24,7.76"/>
+    </svg>
+  );
+}
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -74,7 +82,7 @@ function IconX() {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function Navbar() {
-  const { dbUser } = useAuth();
+  const { dbUser, loading: authLoading } = useAuth();
   const pathname   = usePathname();
   const [scrolled,    setScrolled]    = useState(false);
   const [drawerOpen,  setDrawerOpen]  = useState(false);
@@ -82,6 +90,7 @@ export default function Navbar() {
   const unread = unreadData?.unread ?? 0;
 
   const isProvider   = dbUser?.role === "PROVIDER";
+  const homeHref     = isProvider && dbUser ? `/colaborador/${dbUser.id}/perfil` : "/home";
   const profileHref  = dbUser
     ? isProvider
       ? `/colaborador/${dbUser.id}/perfil`
@@ -261,6 +270,28 @@ export default function Navbar() {
 
         .nb-drawer-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 8px 0 12px; }
 
+        /* ── BTN LOGIN ── */
+        .nb-login-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          font-family: var(--font,'Sora',sans-serif); font-size: 13px; font-weight: 700;
+          padding: 8px 18px; border-radius: 10px;
+          background: #fd5b01; color: #fff; border: none;
+          text-decoration: none; cursor: pointer;
+          transition: background 0.18s, transform 0.1s;
+          box-shadow: 0 3px 12px rgba(253,91,1,0.35);
+          white-space: nowrap;
+        }
+        .nb-login-btn:hover  { background: #d94d00; }
+        .nb-login-btn:active { transform: scale(0.97); }
+        .nb-drawer-login-btn {
+          display: flex; align-items: center; justify-content: center;
+          padding: 13px; border-radius: 12px; margin-top: 8px;
+          background: #fd5b01; color: #fff; border: none;
+          font-family: var(--font,'Sora',sans-serif); font-size: 14px; font-weight: 700;
+          text-decoration: none; transition: background 0.18s;
+        }
+        .nb-drawer-login-btn:hover { background: #d94d00; }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 600px) {
           .nb-links { display: none; }
@@ -288,7 +319,7 @@ export default function Navbar() {
       <nav className={`nb nb-bar${scrolled ? " scrolled" : ""}`}>
         <div className="nb-inner">
           {/* LOGO */}
-          <Link href="/home" className="nb-logo">
+          <Link href={homeHref} className="nb-logo">
             <Image src="/logo.png" width={34} height={34} alt="TwoPlayers" />
             <span className="nb-logo-text">
               Two<span className="nb-logo-accent">Players</span>
@@ -297,13 +328,13 @@ export default function Navbar() {
 
           {/* DESKTOP LINKS */}
           <div className="nb-links">
-            <Link href="/home" className={`nb-link${isActive("/home") ? " active" : ""}`} aria-label="Home">
+            <Link href={homeHref} className={`nb-link${isActive(homeHref) ? " active" : ""}`} aria-label="Home">
               <IconHome /><span>Home</span>
             </Link>
 
-            {dbUser && isProvider && (
-              <Link href={`/colaborador/${dbUser.id}/perfil`} className={`nb-link${isActive("/colaborador") ? " active" : ""}`} aria-label="Dashboard">
-                <IconDashboard /><span>Dashboard</span>
+            {!isProvider && (
+              <Link href="/feed" className={`nb-link${isActive("/feed") ? " active" : ""}`} aria-label="Explorar">
+                <IconCompass /><span>Explorar</span>
               </Link>
             )}
 
@@ -323,14 +354,18 @@ export default function Navbar() {
               </Link>
             )}
 
-            {profileHref
-              ? <Link href={profileHref} className={`nb-link${isActive(profileHref) ? " active" : ""}`} aria-label="Perfil">
-                  <IconUser /><span>Perfil</span>
-                </Link>
-              : <span className="nb-link" style={{ opacity: 0.3, cursor: "not-allowed" }} aria-label="Perfil">
-                  <IconUser /><span>Perfil</span>
-                </span>
-            }
+            {!isProvider && profileHref && (
+              <Link href={profileHref} className={`nb-link${isActive(profileHref) ? " active" : ""}`} aria-label="Perfil">
+                <IconUser /><span>Perfil</span>
+              </Link>
+            )}
+
+            {/* Botão Entrar — só quando auth carregou e não há usuário */}
+            {!authLoading && !dbUser && (
+              <Link href="/login" className="nb-login-btn" aria-label="Entrar">
+                <IconUser /><span>Entrar</span>
+              </Link>
+            )}
           </div>
 
           {/* MOBILE HAMBURGER */}
@@ -348,7 +383,7 @@ export default function Navbar() {
       {/* MOBILE DRAWER */}
       <div className={`nb nb-drawer${drawerOpen ? " open" : ""}`}>
         <div className="nb-drawer-top">
-          <Link href="/home" className="nb-logo" onClick={() => setDrawerOpen(false)}>
+          <Link href={homeHref} className="nb-logo" onClick={() => setDrawerOpen(false)}>
             <Image src="/logo.png" width={30} height={30} alt="TwoPlayers" />
             <span className="nb-logo-text">Two<span className="nb-logo-accent">Players</span></span>
           </Link>
@@ -358,15 +393,15 @@ export default function Navbar() {
         </div>
 
         {/* Drawer nav items */}
-        <Link href="/home" className={`nb-drawer-link${isActive("/home") ? " active" : ""}`}>
+        <Link href={homeHref} className={`nb-drawer-link${isActive(homeHref) ? " active" : ""}`}>
           <div className="nb-drawer-link-icon"><IconHome /></div>
           Home
         </Link>
 
-        {dbUser && isProvider && (
-          <Link href={`/colaborador/${dbUser.id}/perfil`} className={`nb-drawer-link${isActive("/colaborador") ? " active" : ""}`}>
-            <div className="nb-drawer-link-icon"><IconDashboard /></div>
-            Dashboard
+        {!isProvider && (
+          <Link href="/feed" className={`nb-drawer-link${isActive("/feed") ? " active" : ""}`}>
+            <div className="nb-drawer-link-icon"><IconCompass /></div>
+            Explorar
           </Link>
         )}
 
@@ -387,13 +422,18 @@ export default function Navbar() {
 
         <div className="nb-drawer-divider" />
 
-        {profileHref
-          ? <Link href={profileHref} className={`nb-drawer-link${isActive(profileHref) ? " active" : ""}`}>
-              <div className="nb-drawer-link-icon"><IconUser /></div>
-              {isProvider ? "Meu Perfil" : "Meu Perfil"}
-            </Link>
-          : null
-        }
+        {!isProvider && profileHref && (
+          <Link href={profileHref} className={`nb-drawer-link${isActive(profileHref) ? " active" : ""}`}>
+            <div className="nb-drawer-link-icon"><IconUser /></div>
+            Meu Perfil
+          </Link>
+        )}
+
+        {!authLoading && !dbUser && (
+          <Link href="/login" className="nb-drawer-login-btn" onClick={() => setDrawerOpen(false)}>
+            Entrar na conta
+          </Link>
+        )}
       </div>
     </>
   );

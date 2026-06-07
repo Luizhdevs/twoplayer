@@ -1,17 +1,19 @@
 import { api } from "@/lib/api";
 
 export type ProviderCard = {
-  id:         string;
-  name:       string;
-  avatarUrl:  string;
-  rating:     number;
-  price:      number;
-  categories: string[];
+  id:                 string;
+  name:               string;
+  avatarUrl:          string;
+  rating:             number;
+  price:              number;
+  displayCategories:  string[];  // categorias do perfil — exibidas no card
+  categories:         string[];  // union provider + serviços — usadas para busca
 };
 
 export type HomeData = {
   topProviders: ProviderCard[];
   categories:   { name: string; providers: ProviderCard[] }[];
+  allProviders: ProviderCard[];
 };
 
 export type ProviderProfile = {
@@ -99,7 +101,7 @@ export const providersService = {
     const { data } = await api.post<{ data: { id: string; url: string } }>(
       "/providers/me/gallery",
       form,
-      // No manual Content-Type — axios sets multipart/form-data with boundary automatically
+      { headers: { "Content-Type": undefined } },
     );
     return data.data;
   },

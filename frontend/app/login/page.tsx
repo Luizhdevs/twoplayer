@@ -7,7 +7,9 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
+  signOut,
 } from "@/lib/firebase";
+import { api } from "@/lib/api";
 
 type Tab   = "login" | "register";
 type Modal = "none" | "senha" | "termos" | "privacidade";
@@ -122,6 +124,25 @@ export default function LoginPage() {
     setLoginLoading(true);
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPw);
+      // Verifica se é prestador — prestadores só acessam via /login-colaborador
+      try {
+        const { data } = await api.get<any>("/users/me");
+        const role = (data.data ?? data).role;
+        if (role === "PROVIDER") {
+          await signOut(auth);
+          setLoginError("Esta conta é de prestador. Use o acesso de colaborador.");
+          return;
+        }
+      } catch (apiErr: unknown) {
+        const status = (apiErr as any)?.status;
+        if (typeof status === "number") {
+          // Erro HTTP real (404, 500…) — bloqueia login sem verificação de role
+          await signOut(auth);
+          setLoginError("Não foi possível verificar sua conta. Tente novamente.");
+          return;
+        }
+        // Erro de rede (backend fora do ar) — prossegue; home redireciona prestadores
+      }
       if (remember) {
         localStorage.setItem("tp_remember", JSON.stringify({ email: loginEmail, password: loginPw }));
       } else {
@@ -489,7 +510,7 @@ export default function LoginPage() {
                   <label className="li-label">E-mail</label>
                   <div className="li-input-wrap">
                     <IconEmail />
-                    <input className="li-input" type="email" placeholder="seu@email.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} autoComplete="email" />
+                    <input className="li-input" type="email" placeholder="seu@email.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} autoComplete="email" suppressHydrationWarning />
                   </div>
                 </div>
                 <div className="li-field">
@@ -536,7 +557,7 @@ export default function LoginPage() {
                 </div>
                 <div className="li-field compact">
                   <label className="li-label">E-mail</label>
-                  <div className="li-input-wrap"><IconEmail /><input className="li-input" type="email" placeholder="seu@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} /></div>
+                  <div className="li-input-wrap"><IconEmail /><input className="li-input" type="email" placeholder="seu@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} suppressHydrationWarning /></div>
                 </div>
                 <div className="li-grid2">
                   <div className="li-field compact">
@@ -617,7 +638,7 @@ export default function LoginPage() {
             <p>Digite seu e-mail cadastrado.</p>
             <div className="li-field" style={{ marginTop:"1rem" }}>
               <label className="li-label">E-mail</label>
-              <div className="li-input-wrap"><IconEmail /><input className="li-input" type="email" placeholder="seu@email.com" value={recEmail} onChange={e => setRecEmail(e.target.value)} /></div>
+              <div className="li-input-wrap"><IconEmail /><input className="li-input" type="email" placeholder="seu@email.com" value={recEmail} onChange={e => setRecEmail(e.target.value)} suppressHydrationWarning /></div>
             </div>
             {recResult && <div className={`rec-result ${recResult.type==="success"?"rec-success":"rec-error"}`}>{recResult.msg}</div>}
             <button className="li-btn" style={{ marginTop:"0.75rem" }} onClick={handleRecuperar}>Buscar senha</button>

@@ -29,6 +29,7 @@ export class ServiceRepository {
         description: dto.description,
         price: dto.price,
         duration: dto.duration,
+        categories: dto.categories ?? [],
       },
     });
   }
@@ -41,6 +42,7 @@ export class ServiceRepository {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.price !== undefined && { price: dto.price }),
         ...(dto.duration !== undefined && { duration: dto.duration }),
+        ...(dto.categories !== undefined && { categories: dto.categories }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });

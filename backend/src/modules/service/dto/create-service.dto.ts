@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -27,4 +28,9 @@ export class CreateServiceDto {
   @IsInt()
   @Min(1)
   duration: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
 }

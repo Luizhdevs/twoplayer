@@ -24,6 +24,9 @@ backend/logs/
 # Test assets
 backend/scripts/test.png
 
+# Dev local uploads (LocalStorageService)
+backend/uploads/
+
 # OS
 .DS_Store
 Thumbs.db

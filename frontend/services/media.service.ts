@@ -18,7 +18,7 @@ export const mediaService = {
     const { data } = await api.post<{ data: { id: string; url: string } }>(
       "/media/upload",
       form,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      { headers: { "Content-Type": undefined } },
     );
     return data.data;
   },

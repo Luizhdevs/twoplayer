@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -31,7 +31,7 @@ export class UserService {
 
   async create(dto: CreateUserDto) {
     const exists = await this.repo.findByEmail(dto.email);
-    if (exists) throw new ConflictException('E-mail já cadastrado');
+    if (exists) return exists; // upsert — retorna usuário existente para o sync do frontend
     return this.repo.create(dto);
   }
 
