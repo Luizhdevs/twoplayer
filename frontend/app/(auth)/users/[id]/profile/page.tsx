@@ -50,16 +50,18 @@ export default function ProfilePage() {
   const params       = useParams();
   const router       = useRouter();
   const id           = params?.id as string;
-  const { logout }   = useAuth();
+  const { logout, updateDbUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: user, isLoading, isError, error, refetch } = useProfile(id);
-  const updateAvatar = useUpdateAvatar();
+  const updateAvatar = useUpdateAvatar(id);
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    updateAvatar.mutate(file);
+    updateAvatar.mutate(file, {
+      onSuccess: (avatarUrl) => updateDbUser({ avatarUrl }),
+    });
     e.target.value = "";
   }
 
