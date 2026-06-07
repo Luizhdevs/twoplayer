@@ -168,7 +168,7 @@ export default function ColaboradorPerfilPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
-  const { dbUser, loading: authLoading, logout } = useAuth();
+  const { dbUser, loading: authLoading, logout, updateDbUser } = useAuth();
 
   // Saldo real da wallet
   const { data: walletData } = useWallet(dbUser?.id ?? "");
@@ -293,8 +293,9 @@ export default function ColaboradorPerfilPage() {
     setAvatarMenu(false);
     setAvatarUploading(true);
     try {
-      const { url } = await usersService.updateAvatar(file);
-      setColab(prev => prev ? { ...prev, avatarUrl: url } : prev);
+      const avatarUrl = await usersService.updateAvatar(file);
+      setColab(prev => prev ? { ...prev, avatarUrl } : prev);
+      updateDbUser({ avatarUrl });
     } catch {
       // silently ignore — UI stays as-is
     } finally {

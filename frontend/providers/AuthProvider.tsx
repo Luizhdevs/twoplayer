@@ -23,19 +23,21 @@ type DbUser = {
 };
 
 type AuthCtx = {
-  firebaseUser: User | null;
-  dbUser:       DbUser | null;
-  loading:      boolean;
-  logout:       () => Promise<void>;
+  firebaseUser:  User | null;
+  dbUser:        DbUser | null;
+  loading:       boolean;
+  logout:        () => Promise<void>;
+  updateDbUser:  (partial: Partial<DbUser>) => void;
 };
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthCtx>({
-  firebaseUser: null,
-  dbUser:       null,
-  loading:      true,
-  logout:       async () => {},
+  firebaseUser:  null,
+  dbUser:        null,
+  loading:       true,
+  logout:        async () => {},
+  updateDbUser:  () => {},
 });
 
 export function useAuth() {
@@ -109,6 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, []);
 
+  function updateDbUser(partial: Partial<DbUser>) {
+    setDbUser(prev => prev ? { ...prev, ...partial } : prev);
+  }
+
   async function logout() {
     await signOut(auth);
     setFirebaseUser(null);
@@ -116,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, dbUser, loading, logout }}>
+    <AuthContext.Provider value={{ firebaseUser, dbUser, loading, logout, updateDbUser }}>
       {children}
     </AuthContext.Provider>
   );

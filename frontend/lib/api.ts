@@ -34,7 +34,7 @@ api.interceptors.response.use(
     const status  = err.response?.status;
     const message = err.response?.data?.message ?? err.message;
 
-    if (status === 401) {
+    if (status === 401 && auth.currentUser) {
       auth.signOut();
       window.location.href = "/login";
     }

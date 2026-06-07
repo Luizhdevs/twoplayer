@@ -1,5 +1,4 @@
 import { api } from "@/lib/api";
-import { uploadFile } from "@/lib/api";
 
 export type UserProfile = {
   id:           string;
@@ -30,8 +29,15 @@ export const usersService = {
     return data.data;
   },
 
-  updateAvatar: async (file: File): Promise<{ id: string; url: string }> => {
-    return uploadFile("/users/me/avatar", file);
+  updateAvatar: async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await api.patch<{ data: { avatarUrl?: string } }>(
+      "/users/me/avatar",
+      form,
+      { headers: { "Content-Type": undefined } },
+    );
+    return (data.data as any).avatarUrl ?? "";
   },
 
   create: async (body: { firebaseUid: string; email: string; name: string }) => {
