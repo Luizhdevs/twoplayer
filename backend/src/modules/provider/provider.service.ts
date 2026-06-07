@@ -179,10 +179,10 @@ export class ProviderService {
     return Math.min(...services.map((s) => s.price)) / 100;
   }
 
-  private groupByCategory(providers: { categories: string[]; [k: string]: any }[]) {
+  private groupByCategory(providers: { displayCategories: string[]; [k: string]: any }[]) {
     const map: Record<string, typeof providers> = {};
     providers.forEach((p) => {
-      p.categories.forEach((cat) => {
+      p.displayCategories.forEach((cat) => {
         if (!map[cat]) map[cat] = [];
         map[cat].push(p);
       });
