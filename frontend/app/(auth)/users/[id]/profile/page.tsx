@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useProfile, useUpdateAvatar } from "@/hooks/useProfile";
+import { auth, sendPasswordResetEmail } from "@/lib/firebase";
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   PENDING_PAYMENT:              { label: "Ag. pagamento",  color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
@@ -52,6 +53,7 @@ export default function ProfilePage() {
   const id           = params?.id as string;
   const { logout, updateDbUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pwResetMsg, setPwResetMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data: user, isLoading, isError, error, refetch } = useProfile(id);
   const updateAvatar = useUpdateAvatar(id);
@@ -325,6 +327,27 @@ export default function ProfilePage() {
               <div className="pp-cfg-btn-icon">📷</div>
               Alterar foto de perfil
             </button>
+
+            <button className="pp-cfg-btn" onClick={async () => {
+              setPwResetMsg(null);
+              const email = auth.currentUser?.email;
+              if (!email) return;
+              try {
+                await sendPasswordResetEmail(auth, email);
+                setPwResetMsg({ type: "success", text: "Link enviado! Verifique seu e-mail." });
+              } catch {
+                setPwResetMsg({ type: "error", text: "Não foi possível enviar o e-mail. Tente novamente." });
+              }
+            }}>
+              <div className="pp-cfg-btn-icon">🔒</div>
+              Redefinir senha
+            </button>
+            {pwResetMsg && (
+              <p style={{ fontSize: 12, marginBottom: 6, paddingLeft: 4,
+                color: pwResetMsg.type === "success" ? "#4ade80" : "#f87171" }}>
+                {pwResetMsg.text}
+              </p>
+            )}
 
             <Link href="/notifications" style={{ textDecoration: "none" }}>
               <button className="pp-cfg-btn">

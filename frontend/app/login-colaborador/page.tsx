@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, signInWithEmailAndPassword } from "@/lib/firebase";
+import { auth, signInWithEmailAndPassword, sendPasswordResetEmail } from "@/lib/firebase";
 import { api } from "@/lib/api";
 
 const IconEmail = () => (
@@ -29,11 +29,14 @@ const IconEye = ({ show }: { show: boolean }) => (
 
 export default function LoginColaboradorPage() {
   const router = useRouter();
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw,   setShowPw]   = useState(false);
-  const [error,    setError]    = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [email,      setEmail]      = useState("");
+  const [password,   setPassword]   = useState("");
+  const [showPw,     setShowPw]     = useState(false);
+  const [error,      setError]      = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [showReset,  setShowReset]  = useState(false);
+  const [recEmail,   setRecEmail]   = useState("");
+  const [recResult,  setRecResult]  = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -120,6 +123,16 @@ export default function LoginColaboradorPage() {
 
     // Step 5: Redirect using USER ID (page param is userId)
     router.push(`/colaborador/${dbUserId}/perfil`);
+  }
+
+  async function handleRecuperar() {
+    if (!recEmail) { setRecResult({ type: "error", msg: "Digite seu e-mail." }); return; }
+    try {
+      await sendPasswordResetEmail(auth, recEmail);
+      setRecResult({ type: "success", msg: "Verifique seu e-mail! Enviamos um link para redefinir sua senha." });
+    } catch {
+      setRecResult({ type: "error", msg: "E-mail não encontrado ou inválido." });
+    }
   }
 
   return (
@@ -232,6 +245,19 @@ export default function LoginColaboradorPage() {
         .lc-switch a { color:#fd5b01; font-weight:600; text-decoration:none; }
         .lc-switch a:hover { opacity:.8; }
         .lc-footer { text-align:center; font-size:11px; color:#444; margin-top:1.25rem; }
+        .lc-forgot { font-size:11px; color:#fd5b01; text-decoration:none; font-weight:500; }
+        .lc-forgot:hover { opacity:.75; }
+        .lc-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:500; display:flex; align-items:center; justify-content:center; padding:1rem; animation:lcFade .2s ease; }
+        @keyframes lcFade { from{opacity:0} to{opacity:1} }
+        .lc-modal { background:#1a1a1a; border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:2rem; width:100%; max-width:420px; position:relative; box-shadow:0 24px 64px rgba(0,0,0,0.6); animation:lcPop .25s ease; }
+        @keyframes lcPop { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+        .lc-modal-close { position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.08); border:none; border-radius:6px; color:#aaa; font-size:14px; cursor:pointer; padding:6px 10px; transition:all .15s; }
+        .lc-modal-close:hover { background:#fd5b01; color:#fff; }
+        .lc-modal h3 { font-size:18px; font-weight:700; margin-bottom:6px; color:#fff; }
+        .lc-modal > p { font-size:13px; color:#777; }
+        .lc-rec-result { padding:10px 14px; border-radius:8px; font-size:13px; margin-top:.75rem; }
+        .lc-rec-success { background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); color:#4ade80; }
+        .lc-rec-error   { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); color:#f87171; }
       `}</style>
 
       <div className="lc-page">
@@ -285,7 +311,10 @@ export default function LoginColaboradorPage() {
               </div>
 
               <div className="lc-field">
-                <label className="lc-label">Senha</label>
+                <label className="lc-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                  Senha
+                  <a href="#" className="lc-forgot" onClick={e => { e.preventDefault(); setShowReset(true); setRecResult(null); setRecEmail(""); }}>Esqueceu a senha?</a>
+                </label>
                 <div className="lc-input-wrap">
                   <IconLock />
                   <input className="lc-input" type={showPw?"text":"password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
@@ -310,6 +339,38 @@ export default function LoginColaboradorPage() {
           </div>
         </div>
       </div>
+
+      {showReset && (
+        <div className="lc-overlay" onClick={() => setShowReset(false)}>
+          <div className="lc-modal" onClick={e => e.stopPropagation()}>
+            <button className="lc-modal-close" onClick={() => setShowReset(false)}>✕</button>
+            <h3>Recuperar senha</h3>
+            <p>Digite seu e-mail cadastrado.</p>
+            <div style={{ marginTop: "1rem" }}>
+              <label style={{ display:"block", fontSize:11, fontWeight:700, color:"#666", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>E-mail</label>
+              <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+                <IconEmail />
+                <input
+                  className="lc-input"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={recEmail}
+                  onChange={e => setRecEmail(e.target.value)}
+                  suppressHydrationWarning
+                />
+              </div>
+            </div>
+            {recResult && (
+              <div className={`lc-rec-result ${recResult.type === "success" ? "lc-rec-success" : "lc-rec-error"}`}>
+                {recResult.msg}
+              </div>
+            )}
+            <button className="lc-btn" style={{ marginTop: "0.75rem" }} onClick={handleRecuperar}>
+              Enviar link
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

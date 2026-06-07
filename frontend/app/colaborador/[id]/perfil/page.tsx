@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/providers/AuthProvider";
+import { auth, sendPasswordResetEmail } from "@/lib/firebase";
 import { useMyProviderDirect, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
 import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
 import { useWallet } from "@/hooks/useWallet";
@@ -192,6 +193,7 @@ export default function ColaboradorPerfilPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [colab, setColab]               = useState<Colaborador | null>(null);
+  const [pwResetMsg, setPwResetMsg]     = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showIndisponivel, setShowIndisp] = useState(false);
   const [showAddServico, setShowAddServico] = useState(false);
   const [showEditServico, setShowEditServico] = useState<Service | null>(null);
@@ -714,7 +716,23 @@ export default function ColaboradorPerfilPage() {
               📅 Minha Disponibilidade
             </Link>
             <button className="cp-btn-ghost" onClick={() => setShowIndisp(true)}>✏️ Editar perfil</button>
-            <button className="cp-btn-ghost" onClick={() => setShowIndisp(true)}>🔒 Alterar senha</button>
+            <button className="cp-btn-ghost" onClick={async () => {
+              setPwResetMsg(null);
+              const email = auth.currentUser?.email;
+              if (!email) return;
+              try {
+                await sendPasswordResetEmail(auth, email);
+                setPwResetMsg({ type: "success", text: "Link enviado! Verifique seu e-mail." });
+              } catch {
+                setPwResetMsg({ type: "error", text: "Não foi possível enviar o e-mail. Tente novamente." });
+              }
+            }}>🔒 Alterar senha</button>
+            {pwResetMsg && (
+              <p style={{ fontSize: 12, marginTop: -4, marginBottom: 8, paddingLeft: 4,
+                color: pwResetMsg.type === "success" ? "#4ade80" : "#f87171" }}>
+                {pwResetMsg.text}
+              </p>
+            )}
             <button className="cp-btn-ghost" onClick={async () => {
               await logout();
               window.location.href = "/login";
