@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   servicos: { id: string; title: string }[];
@@ -54,7 +55,7 @@ export default function AvaliarButton({ servicos, onNovaAvaliacao }: Props) {
 
       <button className="av-btn" onClick={() => setShowModal(true)}>⭐ Avaliar</button>
 
-      {showModal && (
+      {showModal && createPortal(
         <div className="av-overlay" onClick={handleFechar}>
           <div className="av-modal" onClick={e => e.stopPropagation()}>
             <button className="av-close" onClick={handleFechar}>✕</button>
@@ -95,7 +96,8 @@ export default function AvaliarButton({ servicos, onNovaAvaliacao }: Props) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAvailableSlots } from "@/hooks/useProviders";
@@ -245,7 +246,7 @@ export default function AgendarButton({
         📅 Agendar
       </button>
 
-      {showModal && (
+      {showModal && createPortal(
         <div className="ag-overlay" onClick={handleFechar}>
           <div className="ag-modal" onClick={e => e.stopPropagation()}>
             <button className="ag-close" onClick={handleFechar}>✕</button>
@@ -423,7 +424,8 @@ export default function AgendarButton({
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
