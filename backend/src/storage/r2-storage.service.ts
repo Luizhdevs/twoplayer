@@ -24,22 +24,29 @@ export class R2StorageService implements IStorageService, OnModuleInit {
   private publicUrl: string;
 
   onModuleInit() {
+    const endpoint  = process.env.R2_ENDPOINT;
+    const accessKey = process.env.R2_ACCESS_KEY_ID     ?? '';
+    const secretKey = process.env.R2_SECRET_ACCESS_KEY ?? '';
+
     this.bucket    = process.env.R2_BUCKET_NAME ?? '';
     this.publicUrl = process.env.R2_PUBLIC_URL  ?? '';
 
+    if (!endpoint || !accessKey || !secretKey || !this.bucket) {
+      this.logger.error(
+        `R2 config incompleta — endpoint=${endpoint ?? 'MISSING'} bucket=${this.bucket || 'MISSING'} keyId=${accessKey ? 'ok' : 'MISSING'}`,
+      );
+    }
+
     this.client = new S3Client({
       region: 'auto',
-      endpoint: process.env.R2_ENDPOINT,
-      credentials: {
-        accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
-      },
+      endpoint,
+      credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
       // Cloudflare R2 compatibility: disable automatic checksum headers
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
     } as any);
 
-    this.logger.log(`Storage conectado ao bucket "${this.bucket}"`);
+    this.logger.log(`Storage conectado ao bucket "${this.bucket}" endpoint="${endpoint ?? 'undefined'}"`);
   }
 
   async uploadFile(
@@ -50,14 +57,19 @@ export class R2StorageService implements IStorageService, OnModuleInit {
     const ext = MIME_TO_EXT[mimeType] ?? 'bin';
     const storageKey = `${folder}/${uuidv4()}.${ext}`;
 
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket:      this.bucket,
-        Key:         storageKey,
-        Body:        buffer,
-        ContentType: mimeType,
-      }),
-    );
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket:      this.bucket,
+          Key:         storageKey,
+          Body:        buffer,
+          ContentType: mimeType,
+        }),
+      );
+    } catch (err: any) {
+      this.logger.error(`R2 upload failed — key=${storageKey} bucket=${this.bucket}: ${err?.message ?? err}`);
+      throw err;
+    }
 
     this.logger.log(`Uploaded: ${storageKey}`);
     return { url: `${this.publicUrl}/${storageKey}`, storageKey };

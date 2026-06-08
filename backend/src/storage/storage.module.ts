@@ -10,9 +10,10 @@ import { STORAGE_SERVICE } from './storage.interface';
       provide: STORAGE_SERVICE,
       useFactory: () => {
         const hasR2 =
-          !!process.env.R2_ACCOUNT_ID &&
+          !!process.env.R2_ENDPOINT &&
           !!process.env.R2_ACCESS_KEY_ID &&
-          !!process.env.R2_SECRET_ACCESS_KEY;
+          !!process.env.R2_SECRET_ACCESS_KEY &&
+          !!process.env.R2_BUCKET_NAME;
         return hasR2 ? new R2StorageService() : new LocalStorageService();
       },
     },
