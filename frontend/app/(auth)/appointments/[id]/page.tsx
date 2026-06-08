@@ -49,9 +49,9 @@ const APPROVABLE:  AppointmentStatus[] = ["AWAITING_CLIENT_CONFIRMATION"];
 
 export default function AppointmentDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { dbUser } = useAuth();
+  const { dbUser, loading: authLoading, firebaseUser } = useAuth();
   const { data: myProvider } = useMyProviderDirect();
-  const { data: appt, isLoading, isError } = useAppointment(id);
+  const { data: appt, isLoading, isError } = useAppointment(id, !authLoading && !!firebaseUser);
   const cancel  = useCancelAppointment();
   const approve = useApproveAppointment();
 
@@ -61,7 +61,7 @@ export default function AppointmentDetailPage() {
   // Must be called before any early returns — Rules of Hooks
   const meetingCountdown = useMeetingCountdown(appt?.scheduledAt ?? "", appt?.service?.duration ?? 60);
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="page-loader">
         <div className="tp-spinner tp-spinner-lg" />
