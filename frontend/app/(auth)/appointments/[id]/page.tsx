@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMyProviderDirect } from "@/hooks/useProviders";
 import { useAppointment, useCancelAppointment, useApproveAppointment, useRequestEarlyAccess } from "@/hooks/useAppointments";
+import AvaliarButton from "@/components/AvaliarButton";
 import type { AppointmentStatus } from "@/services/appointments.service";
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -55,6 +56,7 @@ export default function AppointmentDetailPage() {
   const cancel           = useCancelAppointment();
   const approve          = useApproveAppointment();
   const requestEarlyAccess = useRequestEarlyAccess();
+  const [reviewed, setReviewed] = useState(false);
 
   const isProvider            = dbUser?.role === "PROVIDER";
   const isAppointmentProvider = isProvider && !!myProvider?.id && appt?.provider?.id === myProvider.id;
@@ -472,6 +474,26 @@ export default function AppointmentDetailPage() {
               )}
             </div>
           )}
+          {/* AVALIAÇÃO */}
+          {appt.status === "COMPLETED" && !isAppointmentProvider && (
+            <div className="ad-card" style={{ animationDelay: "0.18s" }}>
+              <div className="ad-sec-label">Avaliação</div>
+              {reviewed ? (
+                <div className="ds-alert ds-alert-success">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Avaliação enviada com sucesso!
+                </div>
+              ) : (
+                <>
+                  <p className="ad-msg">O atendimento foi concluído. Deixe sua avaliação para o colaborador.</p>
+                  <AvaliarButton appointmentId={appt.id} onSuccess={() => setReviewed(true)} />
+                </>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </>

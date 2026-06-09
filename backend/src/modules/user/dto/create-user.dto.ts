@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -36,4 +37,8 @@ export class CreateUserDto {
   @IsString()
   @Length(0, 300)
   bio?: string;
+
+  @IsOptional()
+  @IsEnum(['USER', 'PROVIDER'])
+  role?: 'USER' | 'PROVIDER';
 }

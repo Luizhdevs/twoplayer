@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -53,6 +54,7 @@ export class UserRepository {
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
         avatarUrl: dto.avatarUrl,
         bio: dto.bio,
+        ...(dto.role && { role: dto.role as Role }),
         wallet: { create: { balance: 0 } },
       },
     });

@@ -263,7 +263,7 @@ export default function ProviderPage() {
 
           {/* AVALIAÇÕES */}
           <div className="anim-fadeUp" style={{ animationDelay: "0.14s" }}>
-            <AvaliarSection initialReviews={reviewsForSection} servicos={servicos} />
+            <AvaliarSection initialReviews={reviewsForSection} />
           </div>
 
         </div>

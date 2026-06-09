@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, signInWithEmailAndPassword, sendPasswordResetEmail } from "@/lib/firebase";
+import { auth, signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, updateProfile } from "@/lib/firebase";
 import { api } from "@/lib/api";
 
 const IconEmail = () => (
@@ -26,9 +26,16 @@ const IconEye = ({ show }: { show: boolean }) => (
     {show && <path d="M3 3l14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>}
   </svg>
 );
+const IconUser = () => (
+  <svg className="lc-icon" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+    <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
 
 export default function LoginColaboradorPage() {
   const router = useRouter();
+  const [tab,        setTab]        = useState<"login" | "register">("login");
   const [email,      setEmail]      = useState("");
   const [password,   setPassword]   = useState("");
   const [showPw,     setShowPw]     = useState(false);
@@ -37,6 +44,10 @@ export default function LoginColaboradorPage() {
   const [showReset,  setShowReset]  = useState(false);
   const [recEmail,   setRecEmail]   = useState("");
   const [recResult,  setRecResult]  = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [regName,    setRegName]    = useState("");
+  const [regEmail,   setRegEmail]   = useState("");
+  const [regPw,      setRegPw]      = useState("");
+  const [showRegPw,  setShowRegPw]  = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -132,6 +143,54 @@ export default function LoginColaboradorPage() {
       setRecResult({ type: "success", msg: "Verifique seu e-mail! Enviamos um link para redefinir sua senha." });
     } catch {
       setRecResult({ type: "error", msg: "E-mail não encontrado ou inválido." });
+    }
+  }
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!regName.trim() || !regEmail || !regPw) { setError("Preencha todos os campos."); return; }
+    if (regPw.length < 6) { setError("A senha deve ter pelo menos 6 caracteres."); return; }
+    setLoading(true);
+    try {
+      // 1. Firebase
+      const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPw);
+      await updateProfile(user, { displayName: regName.trim() });
+      const token = await user.getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // 2. Criar usuário no DB com role PROVIDER
+      await api.post("/users", {
+        firebaseUid: user.uid,
+        email: user.email,
+        name: regName.trim(),
+        role: "PROVIDER",
+      });
+
+      // 3. Obter ID do usuário no DB
+      const meRes = await api.get<{ id: string } | { data: { id: string } }>("/users/me", { headers });
+      const meUser = (meRes.data as { data?: { id: string } }).data ?? meRes.data as { id: string };
+      if (!meUser?.id) throw new Error("Usuário não encontrado");
+
+      // 4. Criar perfil de provider
+      await api.post("/providers", { userId: meUser.id, categories: [] }, { headers });
+
+      // 5. Redirecionar
+      router.push(`/colaborador/${meUser.id}/perfil`);
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? "";
+      if (code === "auth/email-already-in-use") {
+        setError("Este e-mail já está cadastrado.");
+      } else if (code === "auth/invalid-email") {
+        setError("Formato de e-mail inválido.");
+      } else if (code === "auth/weak-password") {
+        setError("Senha muito fraca. Use pelo menos 6 caracteres.");
+      } else {
+        setError("Erro ao criar conta. Tente novamente.");
+      }
+      try { await auth.signOut(); } catch { /* ignore */ }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -294,42 +353,98 @@ export default function LoginColaboradorPage() {
 
             <div><span className="lc-badge">Área do Prestador</span></div>
 
-            <form onSubmit={handleLogin} noValidate>
-              <div className="lc-form-header">
-                <h2>Acesso colaborador</h2>
-                <p>Entre com suas credenciais de prestador</p>
-              </div>
+            {/* TABS */}
+            <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.05)", borderRadius:10, padding:4, marginBottom:"1.5rem" }}>
+              {(["login","register"] as const).map(t => (
+                <button key={t} onClick={() => { setTab(t); setError(""); }}
+                  style={{ flex:1, padding:"8px 0", borderRadius:7, border:"none", cursor:"pointer", fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700, transition:"all .2s",
+                    background: tab===t ? "#fd5b01" : "transparent",
+                    color: tab===t ? "#fff" : "#666",
+                    boxShadow: tab===t ? "0 2px 8px rgba(253,91,1,0.35)" : "none",
+                  }}>
+                  {t === "login" ? "Entrar" : "Cadastrar"}
+                </button>
+              ))}
+            </div>
 
-              {error && <div className="lc-alert">{error}</div>}
+            {error && <div className="lc-alert">{error}</div>}
 
-              <div className="lc-field">
-                <label className="lc-label">E-mail</label>
-                <div className="lc-input-wrap">
-                  <IconEmail />
-                  <input className="lc-input" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" suppressHydrationWarning />
+            {tab === "login" ? (
+              <form onSubmit={handleLogin} noValidate>
+                <div className="lc-form-header">
+                  <h2>Acesso colaborador</h2>
+                  <p>Entre com suas credenciais de prestador</p>
                 </div>
-              </div>
 
-              <div className="lc-field">
-                <label className="lc-label" style={{ display:"flex", justifyContent:"space-between" }}>
-                  Senha
-                  <a href="#" className="lc-forgot" onClick={e => { e.preventDefault(); setShowReset(true); setRecResult(null); setRecEmail(""); }}>Esqueceu a senha?</a>
-                </label>
-                <div className="lc-input-wrap">
-                  <IconLock />
-                  <input className="lc-input" type={showPw?"text":"password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
-                  <button type="button" className="lc-toggle-pw" onClick={() => setShowPw(p => !p)}><IconEye show={showPw} /></button>
+                <div className="lc-field">
+                  <label className="lc-label">E-mail</label>
+                  <div className="lc-input-wrap">
+                    <IconEmail />
+                    <input className="lc-input" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" suppressHydrationWarning />
+                  </div>
                 </div>
-              </div>
 
-              <button className="lc-btn" type="submit" disabled={loading}>
-                {loading ? (
-                  <svg className="lc-spinner" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4" strokeDashoffset="10"/>
-                  </svg>
-                ) : <>Entrar →</>}
-              </button>
-            </form>
+                <div className="lc-field">
+                  <label className="lc-label" style={{ display:"flex", justifyContent:"space-between" }}>
+                    Senha
+                    <a href="#" className="lc-forgot" onClick={e => { e.preventDefault(); setShowReset(true); setRecResult(null); setRecEmail(""); }}>Esqueceu a senha?</a>
+                  </label>
+                  <div className="lc-input-wrap">
+                    <IconLock />
+                    <input className="lc-input" type={showPw?"text":"password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+                    <button type="button" className="lc-toggle-pw" onClick={() => setShowPw(p => !p)}><IconEye show={showPw} /></button>
+                  </div>
+                </div>
+
+                <button className="lc-btn" type="submit" disabled={loading}>
+                  {loading ? (
+                    <svg className="lc-spinner" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4" strokeDashoffset="10"/>
+                    </svg>
+                  ) : <>Entrar →</>}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRegister} noValidate>
+                <div className="lc-form-header">
+                  <h2>Criar conta de prestador</h2>
+                  <p>Cadastre-se para oferecer seus serviços</p>
+                </div>
+
+                <div className="lc-field">
+                  <label className="lc-label">Nome completo</label>
+                  <div className="lc-input-wrap">
+                    <IconUser />
+                    <input className="lc-input" type="text" placeholder="Seu nome" value={regName} onChange={e => setRegName(e.target.value)} autoComplete="name" />
+                  </div>
+                </div>
+
+                <div className="lc-field">
+                  <label className="lc-label">E-mail</label>
+                  <div className="lc-input-wrap">
+                    <IconEmail />
+                    <input className="lc-input" type="email" placeholder="seu@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} autoComplete="email" suppressHydrationWarning />
+                  </div>
+                </div>
+
+                <div className="lc-field">
+                  <label className="lc-label">Senha</label>
+                  <div className="lc-input-wrap">
+                    <IconLock />
+                    <input className="lc-input" type={showRegPw?"text":"password"} placeholder="Mínimo 6 caracteres" value={regPw} onChange={e => setRegPw(e.target.value)} autoComplete="new-password" />
+                    <button type="button" className="lc-toggle-pw" onClick={() => setShowRegPw(p => !p)}><IconEye show={showRegPw} /></button>
+                  </div>
+                </div>
+
+                <button className="lc-btn" type="submit" disabled={loading || !regName.trim() || !regEmail || regPw.length < 6}>
+                  {loading ? (
+                    <svg className="lc-spinner" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4" strokeDashoffset="10"/>
+                    </svg>
+                  ) : <>Criar conta →</>}
+                </button>
+              </form>
+            )}
 
             <div className="lc-divider" />
             <div className="lc-switch">
