@@ -150,13 +150,14 @@ export default function HomePage() {
         /* ── HERO ── */
         .tp-hero {
           position: relative; width: 100%;
-          height: min(58vw, 540px); min-height: 300px;
+          height: min(52vw, 500px); min-height: 320px;
           overflow: hidden;
         }
         .tp-hero-img {
           position: absolute; inset: 0;
-          object-fit: cover; width: 100%; height: 100%;
-          filter: brightness(0.65) saturate(1.15);
+          object-fit: cover; object-position: center top;
+          width: 100%; height: 100%;
+          filter: brightness(0.6) saturate(1.1);
           transition: opacity 0.45s ease;
         }
         .tp-hero-img.fading { opacity: 0; }
@@ -238,12 +239,29 @@ export default function HomePage() {
         /* ── SECTION ── */
         .tp-section { margin-bottom: 48px; }
         .tp-section-header {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: center; gap: 10px;
           margin-bottom: 18px;
         }
         .tp-section-bar    { width: 4px; height: 20px; border-radius: 2px; flex-shrink: 0; }
         .tp-section-title  { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: #fff; margin: 0; white-space: nowrap; }
-        .tp-section-line   { flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+        .tp-section-line   { flex: 1; height: 1px; background: rgba(255,255,255,0.06); min-width: 12px; }
+        .tp-see-all {
+          flex-shrink: 0;
+          font-size: 12px; font-weight: 700;
+          color: #fd5b01; text-decoration: none;
+          white-space: nowrap;
+          font-family: var(--font,'Sora',sans-serif);
+          padding: 5px 13px; border-radius: 20px;
+          border: 1px solid rgba(253,91,1,0.35);
+          background: rgba(253,91,1,0.09);
+          transition: background 0.2s, border-color 0.2s, transform 0.15s;
+          line-height: 1;
+        }
+        .tp-see-all:hover {
+          background: rgba(253,91,1,0.18);
+          border-color: rgba(253,91,1,0.6);
+          transform: translateX(2px);
+        }
 
         /* ── ROWS ── */
         .tp-row, .tp-featured-row {
@@ -279,7 +297,7 @@ export default function HomePage() {
           background: #111; overflow: hidden;
           border-radius: 12px 12px 0 0;
         }
-        .tp-card-img { object-fit: cover; transition: transform 0.5s ease; }
+        .tp-card-img { object-fit: cover; object-position: center top; transition: transform 0.5s ease; }
         .tp-card:hover .tp-card-img { transform: scale(1.06); }
         .tp-card-overlay {
           position: absolute; inset: 0;
@@ -331,6 +349,14 @@ export default function HomePage() {
           .tp-card { width: 160px; }
           .tp-card--featured { width: 240px; }
           .tp-hero-content { padding: 0 4%; max-width: 90%; }
+          .tp-hero { height: min(90vw, 420px); min-height: 280px; }
+          .tp-section-header { flex-wrap: wrap; }
+          .tp-section-line { min-width: 20px; }
+          .tp-see-all { font-size: 11px; padding: 4px 11px; }
+        }
+        @media (max-width: 360px) {
+          .tp-hero { min-height: 260px; }
+          .tp-see-all { font-size: 11px; }
         }
       `}</style>
 
@@ -388,9 +414,7 @@ export default function HomePage() {
                 <span className="tp-section-bar" style={{ background: "#fd5b01" }} />
                 <h2 className="tp-section-title">🔥 Top Prestadores</h2>
                 <span className="tp-section-line" />
-                <Link href="/feed" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#fd5b01", textDecoration: "none", whiteSpace: "nowrap", fontFamily: "var(--font,'Sora',sans-serif)" }}>
-                  Ver todos →
-                </Link>
+                <Link href="/feed" className="tp-see-all">Ver todos →</Link>
               </div>
               <div className="tp-featured-row">
                 {topProviders.map((p, i) => (
