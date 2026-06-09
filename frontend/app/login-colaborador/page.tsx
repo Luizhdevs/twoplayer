@@ -154,6 +154,7 @@ export default function LoginColaboradorPage() {
     setLoading(true);
     try {
       // 1. Firebase
+      sessionStorage.setItem("tp_pending_name", regName.trim());
       const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPw);
       await updateProfile(user, { displayName: regName.trim() });
       const token = await user.getIdToken();
@@ -191,6 +192,7 @@ export default function LoginColaboradorPage() {
       } else {
         setError("Erro ao criar conta. Tente novamente.");
       }
+      sessionStorage.removeItem("tp_pending_name");
       try { await auth.signOut(); } catch { /* ignore */ }
     } finally {
       setLoading(false);
@@ -359,11 +361,12 @@ export default function LoginColaboradorPage() {
             {/* TABS */}
             <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.05)", borderRadius:10, padding:4, marginBottom:"1.5rem" }}>
               {(["login","register"] as const).map(t => (
-                <button key={t} onClick={() => { setTab(t); setError(""); }}
-                  style={{ flex:1, padding:"8px 0", borderRadius:7, border:"none", cursor:"pointer", fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700, transition:"all .2s",
-                    background: tab===t ? "#fd5b01" : "transparent",
-                    color: tab===t ? "#fff" : "#666",
+                <button key={t} type="button" onClick={() => { setTab(t); setError(""); }}
+                  style={{ flex:1, padding:"10px 0", borderRadius:7, border: tab===t ? "none" : "1px solid rgba(255,255,255,0.1)", cursor:"pointer", fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700, transition:"all .2s",
+                    background: tab===t ? "#fd5b01" : "rgba(255,255,255,0.04)",
+                    color: tab===t ? "#fff" : "#ccc",
                     boxShadow: tab===t ? "0 2px 8px rgba(253,91,1,0.35)" : "none",
+                    minHeight: 44,
                   }}>
                   {t === "login" ? "Entrar" : "Cadastrar"}
                 </button>
