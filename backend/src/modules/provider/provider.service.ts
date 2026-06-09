@@ -10,6 +10,7 @@ import { UpdateProviderDto } from './dto/update-provider.dto';
 import { MediaService } from '../media/media.service';
 import { MediaRepository } from '../media/media.repository';
 import { MAX_GALLERY_IMAGES } from '../media/media.constants';
+import { UserRepository } from '../user/user.repository';
 
 @Injectable()
 export class ProviderService {
@@ -17,6 +18,7 @@ export class ProviderService {
     private readonly repo: ProviderRepository,
     private readonly mediaService: MediaService,
     private readonly mediaRepo: MediaRepository,
+    private readonly userRepo: UserRepository,
   ) {}
 
   async getHome() {
@@ -100,6 +102,7 @@ export class ProviderService {
   }
 
   async create(dto: CreateProviderDto) {
+    await this.userRepo.update(dto.userId, { role: 'PROVIDER' } as any);
     return this.repo.create(dto.userId, dto.categories);
   }
 
