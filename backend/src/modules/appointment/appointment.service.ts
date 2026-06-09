@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -105,5 +106,90 @@ export class AppointmentService {
   async remove(id: string) {
     await this.findById(id);
     return this.repo.softDelete(id);
+  }
+
+  async requestEarlyAccess(id: string, userId: string) {
+    const appt = await this.findById(id);
+
+    if (appt.userId !== userId) throw new ForbiddenException('Sem permissão');
+
+    const TERMINAL = ['CANCELLED', 'EXPIRED', 'REFUNDED', 'DISPUTED', 'COMPLETED', 'IN_PROGRESS'];
+    if (TERMINAL.includes(appt.status)) {
+      throw new BadRequestException('Este agendamento não permite entrada antecipada');
+    }
+    if (!['PAID', 'CONFIRMED'].includes(appt.status)) {
+      throw new BadRequestException('Entrada antecipada só pode ser solicitada em agendamentos pagos ou confirmados');
+    }
+    if (appt.earlyAccessStatus === 'PENDING') {
+      throw new ConflictException('Já existe uma solicitação pendente');
+    }
+    if (appt.earlyAccessStatus === 'ACCEPTED') {
+      throw new BadRequestException('Entrada antecipada já foi aceita');
+    }
+
+    const updated = await this.repo.requestEarlyAccess(id);
+
+    const providerUserId = (updated.provider as any)?.user?.id;
+    if (providerUserId) {
+      await this.notificationService.notify(
+        providerUserId,
+        'Solicitação de entrada antecipada',
+        'O cliente solicitou entrada antecipada na reunião.',
+        'APPOINTMENT',
+        { appointmentId: id },
+      );
+    }
+
+    return updated;
+  }
+
+  async acceptEarlyAccess(id: string, userId: string) {
+    const appt = await this.findById(id);
+
+    const providerUserId = (appt.provider as any)?.user?.id;
+    if (providerUserId !== userId) throw new ForbiddenException('Sem permissão');
+
+    if (appt.earlyAccessStatus !== 'PENDING') {
+      throw new BadRequestException('Não há solicitação pendente para este agendamento');
+    }
+    if (!['PAID', 'CONFIRMED'].includes(appt.status)) {
+      throw new BadRequestException('Agendamento não está em estado válido para aceitar entrada antecipada');
+    }
+
+    const meetingUrl = appt.meetingUrl ?? `https://meet.jit.si/twoplayers-${id}`;
+    const updated = await this.repo.acceptEarlyAccess(id, meetingUrl);
+
+    await this.notificationService.notify(
+      appt.userId,
+      'Entrada antecipada aceita',
+      'O colaborador aceitou sua solicitação. A reunião já está disponível.',
+      'APPOINTMENT',
+      { appointmentId: id },
+    );
+
+    return updated;
+  }
+
+  async rejectEarlyAccess(id: string, userId: string) {
+    const appt = await this.findById(id);
+
+    const providerUserId = (appt.provider as any)?.user?.id;
+    if (providerUserId !== userId) throw new ForbiddenException('Sem permissão');
+
+    if (appt.earlyAccessStatus !== 'PENDING') {
+      throw new BadRequestException('Não há solicitação pendente para este agendamento');
+    }
+
+    const updated = await this.repo.rejectEarlyAccess(id);
+
+    await this.notificationService.notify(
+      appt.userId,
+      'Entrada antecipada recusada',
+      'O colaborador recusou a entrada antecipada. Aguarde o horário agendado.',
+      'APPOINTMENT',
+      { appointmentId: id },
+    );
+
+    return updated;
   }
 }

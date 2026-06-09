@@ -103,6 +103,41 @@ export class AppointmentRepository {
     });
   }
 
+  async requestEarlyAccess(id: string) {
+    return this.prisma.appointment.update({
+      where: { id },
+      data: {
+        earlyAccessStatus:      'PENDING',
+        earlyAccessRequestedAt: new Date(),
+      },
+      include: { service: true, provider: { include: { user: true } }, user: true },
+    });
+  }
+
+  async acceptEarlyAccess(id: string, meetingUrl: string) {
+    return this.prisma.appointment.update({
+      where: { id },
+      data: {
+        earlyAccessStatus:      'ACCEPTED',
+        earlyAccessRespondedAt: new Date(),
+        status:                 'IN_PROGRESS',
+        meetingUrl,
+      },
+      include: { service: true, provider: { include: { user: true } }, user: true },
+    });
+  }
+
+  async rejectEarlyAccess(id: string) {
+    return this.prisma.appointment.update({
+      where: { id },
+      data: {
+        earlyAccessStatus:      'REJECTED',
+        earlyAccessRespondedAt: new Date(),
+      },
+      include: { service: true, provider: { include: { user: true } }, user: true },
+    });
+  }
+
   findByProviderAndDate(providerId: string, date: Date) {
     const dayStart = new Date(date);
     dayStart.setUTCHours(0, 0, 0, 0);

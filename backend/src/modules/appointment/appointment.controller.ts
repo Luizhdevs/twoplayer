@@ -49,4 +49,19 @@ export class AppointmentController {
   remove(@Param('id') id: string) {
     return this.appointmentService.remove(id);
   }
+
+  @Post(':id/request-early-access')
+  requestEarlyAccess(@Param('id') id: string, @Body('userId') userId: string) {
+    return this.appointmentService.requestEarlyAccess(id, userId);
+  }
+
+  @Post(':id/accept-early-access')
+  acceptEarlyAccess(@Param('id') id: string, @Body('userId') userId: string) {
+    return this.appointmentService.acceptEarlyAccess(id, userId);
+  }
+
+  @Post(':id/reject-early-access')
+  rejectEarlyAccess(@Param('id') id: string, @Body('userId') userId: string) {
+    return this.appointmentService.rejectEarlyAccess(id, userId);
+  }
 }

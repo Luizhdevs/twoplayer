@@ -87,3 +87,32 @@ export function useAppointmentEvents(id: string) {
     enabled:  !!id,
   });
 }
+
+// ── Early Access ──────────────────────────────────────────────────────────────
+
+export function useRequestEarlyAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      appointmentsService.requestEarlyAccess(id, userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: APPT_KEY }),
+  });
+}
+
+export function useAcceptEarlyAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      appointmentsService.acceptEarlyAccess(id, userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: APPT_KEY }),
+  });
+}
+
+export function useRejectEarlyAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      appointmentsService.rejectEarlyAccess(id, userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: APPT_KEY }),
+  });
+}

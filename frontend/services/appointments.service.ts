@@ -1,17 +1,22 @@
 import { api } from "@/lib/api";
 
+export type EarlyAccessStatus = "PENDING" | "ACCEPTED" | "REJECTED";
+
 export type Appointment = {
-  id:          string;
-  userId:      string;
-  serviceId:   string;
-  providerId:  string;
-  scheduledAt: string;
-  status:      AppointmentStatus;
-  amount:      number;
-  meetingUrl:  string | null;
-  service:     { id: string; title: string; price: number; duration: number };
-  provider:    { id: string; user: { name: string; avatarUrl: string | null } };
-  user:        { id: string; name: string };
+  id:                      string;
+  userId:                  string;
+  serviceId:               string;
+  providerId:              string;
+  scheduledAt:             string;
+  status:                  AppointmentStatus;
+  amount:                  number;
+  meetingUrl:              string | null;
+  earlyAccessStatus:       EarlyAccessStatus | null;
+  earlyAccessRequestedAt:  string | null;
+  earlyAccessRespondedAt:  string | null;
+  service:                 { id: string; title: string; price: number; duration: number };
+  provider:                { id: string; user: { name: string; avatarUrl: string | null } };
+  user:                    { id: string; name: string };
 };
 
 export type AppointmentStatus =
@@ -84,6 +89,21 @@ export const appointmentsService = {
 
   getEvents: async (id: string) => {
     const { data } = await api.get<{ data: any[] }>(`/appointments/${id}/events`);
+    return data.data;
+  },
+
+  requestEarlyAccess: async (id: string, userId: string): Promise<Appointment> => {
+    const { data } = await api.post<{ data: Appointment }>(`/appointments/${id}/request-early-access`, { userId });
+    return data.data;
+  },
+
+  acceptEarlyAccess: async (id: string, userId: string): Promise<Appointment> => {
+    const { data } = await api.post<{ data: Appointment }>(`/appointments/${id}/accept-early-access`, { userId });
+    return data.data;
+  },
+
+  rejectEarlyAccess: async (id: string, userId: string): Promise<Appointment> => {
+    const { data } = await api.post<{ data: Appointment }>(`/appointments/${id}/reject-early-access`, { userId });
     return data.data;
   },
 };

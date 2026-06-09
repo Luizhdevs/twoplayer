@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMyProviderDirect } from "@/hooks/useProviders";
-import { useAppointment, useCancelAppointment, useApproveAppointment } from "@/hooks/useAppointments";
+import { useAppointment, useCancelAppointment, useApproveAppointment, useRequestEarlyAccess } from "@/hooks/useAppointments";
 import type { AppointmentStatus } from "@/services/appointments.service";
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -52,8 +52,9 @@ export default function AppointmentDetailPage() {
   const { dbUser, loading: authLoading, firebaseUser } = useAuth();
   const { data: myProvider } = useMyProviderDirect();
   const { data: appt, isLoading, isError } = useAppointment(id, !authLoading && !!firebaseUser);
-  const cancel  = useCancelAppointment();
-  const approve = useApproveAppointment();
+  const cancel           = useCancelAppointment();
+  const approve          = useApproveAppointment();
+  const requestEarlyAccess = useRequestEarlyAccess();
 
   const isProvider            = dbUser?.role === "PROVIDER";
   const isAppointmentProvider = isProvider && !!myProvider?.id && appt?.provider?.id === myProvider.id;
@@ -87,6 +88,13 @@ export default function AppointmentDetailPage() {
   const canCancel    = CANCELLABLE.includes(appt.status);
   const canApprove   = APPROVABLE.includes(appt.status);
   const showMeetingSection = !!appt.meetingUrl && !["PENDING_PAYMENT","EXPIRED","CANCELLED","REFUNDED","DISPUTED"].includes(appt.status);
+
+  const earlyAccessStatus = appt.earlyAccessStatus ?? null;
+  const canRequestEarlyAccess =
+    !isAppointmentProvider &&
+    ["PAID", "CONFIRMED"].includes(appt.status) &&
+    earlyAccessStatus !== "PENDING" &&
+    earlyAccessStatus !== "ACCEPTED";
 
   const scheduledDate = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
@@ -294,6 +302,86 @@ export default function AppointmentDetailPage() {
                 <p style={{ fontSize: 13, color: "var(--t3)", textAlign: "center", padding: "0.5rem 0" }}>
                   A janela de acesso à reunião foi encerrada.
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* ENTRADA ANTECIPADA — cliente */}
+          {!isAppointmentProvider && ["PAID", "CONFIRMED"].includes(appt.status) && (
+            <div className="ad-card" style={{ animationDelay: "0.12s" }}>
+              <div className="ad-sec-label">Entrada antecipada</div>
+
+              {earlyAccessStatus === "ACCEPTED" && (
+                <>
+                  <div className="ds-alert ds-alert-success" style={{ marginBottom: 14 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    O colaborador aceitou. Você já pode entrar na reunião.
+                  </div>
+                  {appt.meetingUrl && (
+                    <a href={appt.meetingUrl} target="_blank" rel="noopener noreferrer" className="ad-meet-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                      </svg>
+                      Entrar na reunião
+                    </a>
+                  )}
+                </>
+              )}
+
+              {earlyAccessStatus === "PENDING" && (
+                <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>⏳</div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4 }}>
+                    Aguardando resposta do colaborador
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--t3)" }}>
+                    Sua solicitação foi enviada. Você será notificado quando houver resposta.
+                  </p>
+                </div>
+              )}
+
+              {earlyAccessStatus === "REJECTED" && (
+                <p className="ad-msg">
+                  O colaborador recusou a entrada antecipada. Aguarde o horário agendado.
+                </p>
+              )}
+
+              {canRequestEarlyAccess && (
+                <>
+                  <p className="ad-msg">
+                    Quer iniciar o atendimento agora? Solicite ao colaborador que libere o acesso antecipado.
+                  </p>
+                  <button
+                    className="ad-action-btn"
+                    style={{
+                      background: "rgba(167,139,250,0.1)", color: "#a78bfa",
+                      borderColor: "rgba(167,139,250,0.3)",
+                    }}
+                    disabled={requestEarlyAccess.isPending}
+                    onClick={() => {
+                      if (dbUser?.id) requestEarlyAccess.mutate({ id: appt.id, userId: dbUser.id });
+                    }}
+                  >
+                    {requestEarlyAccess.isPending ? (
+                      <><div className="tp-spinner tp-spinner-sm" /> Solicitando...</>
+                    ) : (
+                      <>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        Solicitar entrada antecipada
+                      </>
+                    )}
+                  </button>
+                  {requestEarlyAccess.error && (
+                    <p className="ad-err">⚠️ {requestEarlyAccess.error.message}</p>
+                  )}
+                  {requestEarlyAccess.isSuccess && (
+                    <p className="ad-ok">✓ Solicitação enviada ao colaborador.</p>
+                  )}
+                </>
               )}
             </div>
           )}

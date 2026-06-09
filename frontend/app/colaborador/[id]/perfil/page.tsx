@@ -8,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import { useAuth } from "@/providers/AuthProvider";
 import { auth, sendPasswordResetEmail } from "@/lib/firebase";
 import { useMyProviderDirect, useProvider, useAddGalleryImage, useRemoveGalleryImage } from "@/hooks/useProviders";
-import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment } from "@/hooks/useAppointments";
+import { useAppointmentsByProvider, useConfirmAppointment, useStartAppointment, useFinishAppointment, useAcceptEarlyAccess, useRejectEarlyAccess } from "@/hooks/useAppointments";
 import { useWallet } from "@/hooks/useWallet";
 import { useServicesByProvider, useCreateService, useUpdateService, useDeleteService } from "@/hooks/useServices";
 import { useReviewsByProvider } from "@/hooks/useReviews";
@@ -54,9 +54,12 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
 // ── Card de appointment do prestador ─────────────────────────────────────────
 
 function AppointmentCard({ appt }: { appt: Appointment }) {
-  const confirm = useConfirmAppointment();
-  const start   = useStartAppointment();
-  const finish  = useFinishAppointment();
+  const { dbUser } = useAuth();
+  const confirm    = useConfirmAppointment();
+  const start      = useStartAppointment();
+  const finish     = useFinishAppointment();
+  const accept     = useAcceptEarlyAccess();
+  const reject     = useRejectEarlyAccess();
 
   const clientName = appt.user?.name ?? "Cliente";
   const date = new Date(appt.scheduledAt).toLocaleDateString("pt-BR", {
@@ -64,16 +67,30 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
     hour: "2-digit", minute: "2-digit",
   });
 
-  const actionLoading = confirm.isPending || start.isPending || finish.isPending;
-  const actionErr     = confirm.error?.message ?? start.error?.message ?? finish.error?.message;
+  const earlyPending  = appt.earlyAccessStatus === "PENDING";
+  const actionLoading = confirm.isPending || start.isPending || finish.isPending || accept.isPending || reject.isPending;
+  const actionErr     = confirm.error?.message ?? start.error?.message ?? finish.error?.message ?? accept.error?.message ?? reject.error?.message;
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.04)",
-      border: "1px solid rgba(255,255,255,0.07)",
+      background: earlyPending ? "rgba(167,139,250,0.06)" : "rgba(255,255,255,0.04)",
+      border: earlyPending ? "1px solid rgba(167,139,250,0.3)" : "1px solid rgba(255,255,255,0.07)",
       borderRadius: 14, padding: "1rem 1.25rem",
       marginBottom: 10,
     }}>
+      {/* Banner de entrada antecipada pendente */}
+      {earlyPending && (
+        <div style={{
+          background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.25)",
+          borderRadius: 10, padding: "10px 14px", marginBottom: 12,
+          display: "flex", alignItems: "center", gap: 8,
+          fontSize: 12, fontWeight: 600, color: "#a78bfa",
+        }}>
+          <span style={{ fontSize: 16 }}>⚡</span>
+          O cliente deseja iniciar este atendimento agora.
+        </div>
+      )}
+
       {/* Header: cliente + status */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
         <div>
@@ -84,17 +101,44 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
       </div>
 
       {/* Detalhes */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: actionErr ? 8 : 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
         <span style={{ fontSize: 12, color: "#777" }}>📅 {date}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#fd5b01" }}>
           R$ {(appt.amount / 100).toFixed(2)}
         </span>
       </div>
 
+      {/* Botões de aceitar/recusar entrada antecipada */}
+      {earlyPending && (
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button
+            className="cp-action-btn cp-action-confirm"
+            style={{ flex: 1 }}
+            disabled={actionLoading}
+            onClick={() => { if (dbUser?.id) accept.mutate({ id: appt.id, userId: dbUser.id }); }}
+          >
+            {accept.isPending ? "Aceitando..." : "✅ Aceitar e iniciar reunião"}
+          </button>
+          <button
+            className="cp-action-btn"
+            style={{
+              flex: 1,
+              background: "rgba(248,113,113,0.08)", color: "#f87171",
+              border: "1px solid rgba(248,113,113,0.25)",
+            }}
+            disabled={actionLoading}
+            onClick={() => { if (dbUser?.id) reject.mutate({ id: appt.id, userId: dbUser.id }); }}
+          >
+            {reject.isPending ? "Recusando..." : "✕ Recusar"}
+          </button>
+        </div>
+      )}
+
       {/* Ações baseadas no status */}
-      {appt.status === "PAID" && (
+      {!earlyPending && appt.status === "PAID" && (
         <button
           className="cp-action-btn cp-action-confirm"
+          style={{ marginTop: 10 }}
           disabled={actionLoading}
           onClick={() => confirm.mutate(appt.id)}
         >
@@ -102,9 +146,10 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
         </button>
       )}
 
-      {appt.status === "CONFIRMED" && (
+      {!earlyPending && appt.status === "CONFIRMED" && (
         <button
           className="cp-action-btn cp-action-start"
+          style={{ marginTop: 10 }}
           disabled={actionLoading}
           onClick={() => start.mutate(appt.id)}
         >
@@ -115,6 +160,7 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
       {appt.status === "IN_PROGRESS" && (
         <button
           className="cp-action-btn cp-action-finish"
+          style={{ marginTop: 10 }}
           disabled={actionLoading}
           onClick={() => finish.mutate(appt.id)}
         >
@@ -333,14 +379,15 @@ export default function ColaboradorPerfilPage() {
   );
 
   // Dashboard sections
-  const apptList          = appointments ?? [];
-  const needsActionAppts  = apptList.filter(a => a.status === "PAID"); // aguarda confirmação
-  const confirmedAppts    = apptList.filter(a => a.status === "CONFIRMED");
-  const inProgressAppts   = apptList.filter(a => a.status === "IN_PROGRESS");
-  const awaitingAppts     = apptList.filter(a => a.status === "AWAITING_CLIENT_CONFIRMATION");
-  const pendingAppts      = apptList.filter(a => ["PENDING_PAYMENT", "PENDING"].includes(a.status));
-  const pastAppts         = apptList.filter(a => ["COMPLETED", "CANCELLED", "REFUNDED", "DISPUTED", "EXPIRED"].includes(a.status));
-  const activeAppts       = [...needsActionAppts, ...confirmedAppts, ...inProgressAppts, ...awaitingAppts];
+  const apptList           = appointments ?? [];
+  const earlyAccessAppts   = apptList.filter(a => a.earlyAccessStatus === "PENDING");
+  const needsActionAppts   = apptList.filter(a => a.status === "PAID" && a.earlyAccessStatus !== "PENDING");
+  const confirmedAppts     = apptList.filter(a => a.status === "CONFIRMED" && a.earlyAccessStatus !== "PENDING");
+  const inProgressAppts    = apptList.filter(a => a.status === "IN_PROGRESS");
+  const awaitingAppts      = apptList.filter(a => a.status === "AWAITING_CLIENT_CONFIRMATION");
+  const pendingAppts       = apptList.filter(a => ["PENDING_PAYMENT", "PENDING"].includes(a.status));
+  const pastAppts          = apptList.filter(a => ["COMPLETED", "CANCELLED", "REFUNDED", "DISPUTED", "EXPIRED"].includes(a.status));
+  const activeAppts        = [...earlyAccessAppts, ...needsActionAppts, ...confirmedAppts, ...inProgressAppts, ...awaitingAppts];
 
   return (
     <>
@@ -560,6 +607,16 @@ export default function ColaboradorPerfilPage() {
                   Aguardando aprovação do cliente ({awaitingAppts.length})
                 </p>
                 {awaitingAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
+              </div>
+            )}
+
+            {/* ENTRADA ANTECIPADA PENDENTE */}
+            {earlyAccessAppts.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:"#a78bfa", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+                  ⚡ Entrada antecipada solicitada ({earlyAccessAppts.length})
+                </p>
+                {earlyAccessAppts.map(a => <AppointmentCard key={a.id} appt={a} />)}
               </div>
             )}
 
