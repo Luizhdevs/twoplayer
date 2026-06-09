@@ -15,6 +15,7 @@ import { useReviewsByProvider } from "@/hooks/useReviews";
 import { usersService } from "@/services/users.service";
 import type { Service } from "@/services/services.service";
 import type { Appointment, AppointmentStatus } from "@/services/appointments.service";
+import { CATEGORIES } from "@/lib/categories";
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -772,7 +773,7 @@ export default function ColaboradorPerfilPage() {
                 </div>
                 <label className="cp-label">Categorias</label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 4 }}>
-                  {["Games","Esports","Futebol","Basquete","Tênis","Vôlei","Streaming","YouTube","TikTok","Coaching","Mentoria","Bate-papo","Autógrafo","Lives","Música","Fitness"].map(cat => (
+                  {CATEGORIES.map(cat => (
                     <button
                       key={cat}
                       type="button"

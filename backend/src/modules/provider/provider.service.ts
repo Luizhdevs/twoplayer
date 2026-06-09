@@ -179,10 +179,12 @@ export class ProviderService {
     return Math.min(...services.map((s) => s.price)) / 100;
   }
 
-  private groupByCategory(providers: { displayCategories: string[]; [k: string]: any }[]) {
+  private groupByCategory(providers: { displayCategories: string[]; categories: string[]; [k: string]: any }[]) {
     const map: Record<string, typeof providers> = {};
     providers.forEach((p) => {
-      p.displayCategories.forEach((cat) => {
+      // Se o provider não tem categorias em serviços, usa a union (provider.categories)
+      const cats = p.displayCategories.length ? p.displayCategories : p.categories;
+      cats.forEach((cat) => {
         if (!map[cat]) map[cat] = [];
         map[cat].push(p);
       });

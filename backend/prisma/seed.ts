@@ -149,6 +149,7 @@ async function main() {
         description: 'Sessão exclusiva de 30 minutos com Neymar',
         price: 35000,
         duration: 30,
+        categories: ['Futebol', 'Bate-papo'],
       },
     }),
     prisma.service.create({
@@ -158,6 +159,7 @@ async function main() {
         description: 'Jogue uma partida completa ao lado do Neymar',
         price: 70000,
         duration: 60,
+        categories: ['Games', 'Futebol'],
       },
     }),
   ]);
@@ -170,6 +172,7 @@ async function main() {
         description: 'Sessão de 30min com o Gaules',
         price: 20000,
         duration: 30,
+        categories: ['Games', 'Bate-papo'],
       },
     }),
     prisma.service.create({
@@ -179,6 +182,7 @@ async function main() {
         description: 'Aprenda táticas e estratégias com o Gaules',
         price: 40000,
         duration: 60,
+        categories: ['Games', 'Coaching'],
       },
     }),
   ]);
@@ -191,6 +195,7 @@ async function main() {
         description: 'Sessão de 30min com o Cazé',
         price: 22000,
         duration: 30,
+        categories: ['Futebol', 'Streaming', 'Bate-papo'],
       },
     }),
     prisma.service.create({
@@ -200,6 +205,7 @@ async function main() {
         description: 'Partida ao lado do Cazé',
         price: 44000,
         duration: 60,
+        categories: ['Games', 'Futebol'],
       },
     }),
   ]);
