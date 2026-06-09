@@ -150,26 +150,30 @@ export default function HomePage() {
         /* ── HERO ── */
         .tp-hero {
           position: relative; width: 100%;
-          height: min(52vw, 500px); min-height: 320px;
+          height: clamp(320px, 46vw, 500px);
           overflow: hidden;
         }
         .tp-hero-img {
           position: absolute; inset: 0;
           object-fit: cover; object-position: center top;
           width: 100%; height: 100%;
-          filter: brightness(0.6) saturate(1.1);
+          filter: brightness(0.68) saturate(1.1);
           transition: opacity 0.45s ease;
         }
         .tp-hero-img.fading { opacity: 0; }
         .tp-hero-grad {
           position: absolute; inset: 0;
           background:
-            linear-gradient(to right, rgba(13,13,13,0.88) 0%, rgba(13,13,13,0.45) 45%, transparent 75%),
-            linear-gradient(to top, #0d0d0d 0%, transparent 50%);
+            linear-gradient(to right, rgba(13,13,13,0.82) 0%, rgba(13,13,13,0.38) 40%, transparent 65%),
+            linear-gradient(to top, #0d0d0d 0%, transparent 46%);
         }
         .tp-hero-content {
-          position: absolute; bottom: 14%; left: 0;
-          padding: 0 5%; max-width: 540px;
+          position: absolute; bottom: 13%;
+          left: 0; right: 0;
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 clamp(16px, 5%, 64px);
+          box-sizing: border-box;
         }
         .tp-hero-badge {
           display: inline-flex; align-items: center; gap: 6px;
@@ -218,9 +222,17 @@ export default function HomePage() {
           box-shadow: 0 8px 32px rgba(253,91,1,0.5);
         }
         .tp-hero-dots {
-          position: absolute; bottom: 7%; right: 5%;
+          position: absolute; bottom: 7%;
+          left: 0; right: 0;
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 clamp(16px, 5%, 64px);
+          box-sizing: border-box;
           display: flex; gap: 8px; align-items: center;
+          justify-content: flex-end;
+          pointer-events: none;
         }
+        .tp-hero-dot { pointer-events: all; }
         .tp-hero-dot {
           border: none; padding: 0; cursor: pointer;
           transition: background 0.3s, transform 0.2s, width 0.3s;
@@ -231,9 +243,11 @@ export default function HomePage() {
 
         /* ── MAIN ── */
         .tp-main {
-          padding: 0 5%;
-          margin-top: -48px;
+          max-width: 1280px;
+          margin: -48px auto 0;
+          padding: 0 clamp(16px, 5%, 64px);
           position: relative; z-index: 2;
+          box-sizing: border-box;
         }
 
         /* ── SECTION ── */
@@ -344,19 +358,13 @@ export default function HomePage() {
         .tp-empty-title { font-size: 18px; font-weight: 700; color: var(--t2, #aaa); margin-bottom: 8px; }
         .tp-empty-desc  { font-size: 14px; color: var(--t3, #666); line-height: 1.6; }
 
-        @media (max-width: 480px) {
-          .tp-main { padding: 0 4%; margin-top: -32px; }
+        @media (max-width: 600px) {
+          .tp-main { margin-top: -32px; }
+          .tp-hero { height: clamp(260px, 85vw, 400px); }
           .tp-card { width: 160px; }
           .tp-card--featured { width: 240px; }
-          .tp-hero-content { padding: 0 4%; max-width: 90%; }
-          .tp-hero { height: min(90vw, 420px); min-height: 280px; }
           .tp-section-header { flex-wrap: wrap; }
-          .tp-section-line { min-width: 20px; }
           .tp-see-all { font-size: 11px; padding: 4px 11px; }
-        }
-        @media (max-width: 360px) {
-          .tp-hero { min-height: 260px; }
-          .tp-see-all { font-size: 11px; }
         }
       `}</style>
 
