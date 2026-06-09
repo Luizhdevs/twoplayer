@@ -271,13 +271,15 @@ export default function AppointmentDetailPage() {
           {showMeetingSection && (
             <div className="ad-card" style={{ animationDelay: "0.1s" }}>
               <div className="ad-sec-label">Reunião online</div>
-              {meetingCountdown.state === "active" && (
+              {(meetingCountdown.state === "active" || earlyAccessStatus === "ACCEPTED") && (
                 <>
                   <div className="ds-alert ds-alert-success" style={{ marginBottom: 14 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                     </svg>
-                    A reunião está disponível agora! Clique para entrar.
+                    {earlyAccessStatus === "ACCEPTED" && meetingCountdown.state !== "active"
+                      ? "Entrada antecipada aceita! Você já pode entrar na reunião."
+                      : "A reunião está disponível agora! Clique para entrar."}
                   </div>
                   <a href={appt.meetingUrl!} target="_blank" rel="noopener noreferrer" className="ad-meet-btn">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -287,7 +289,7 @@ export default function AppointmentDetailPage() {
                   </a>
                 </>
               )}
-              {meetingCountdown.state === "soon" && (
+              {meetingCountdown.state === "soon" && earlyAccessStatus !== "ACCEPTED" && (
                 <div style={{ textAlign: "center", padding: "0.75rem 0" }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>⏰</div>
                   <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
@@ -298,7 +300,7 @@ export default function AppointmentDetailPage() {
                   </p>
                 </div>
               )}
-              {meetingCountdown.state === "ended" && (
+              {meetingCountdown.state === "ended" && earlyAccessStatus !== "ACCEPTED" && (
                 <p style={{ fontSize: 13, color: "var(--t3)", textAlign: "center", padding: "0.5rem 0" }}>
                   A janela de acesso à reunião foi encerrada.
                 </p>
