@@ -262,24 +262,15 @@ export default function ColaboradorPerfilPage() {
 
   useEffect(() => {
     if (dbUser) {
-      // Funciona tanto para login Firebase (UUID) quanto para mock (id numérico)
       setColab({
-        id:       dbUser.id,
-        name:     dbUser.name,
-        email:    dbUser.email,
-        bio:      dbUser.bio ?? undefined,
+        id:        dbUser.id,
+        name:      dbUser.name,
+        email:     dbUser.email,
+        bio:       dbUser.bio ?? undefined,
         avatarUrl: dbUser.avatarUrl ?? undefined,
       });
-    } else if (!authLoading) {
-      // Firebase resolveu mas não há usuário autenticado
-      // Fallback: usa dados do URL + placeholder para não travar em "Carregando..."
-      setColab({
-        id,
-        name:  "Prestador",
-        email: "",
-      });
     }
-  }, [dbUser, id, authLoading]);
+  }, [dbUser]);
 
   function abrirEdit(s: Service) {
     setShowEditServico(s);
@@ -363,14 +354,14 @@ export default function ColaboradorPerfilPage() {
     });
   }
 
-  // Redireciona clientes para home — esta rota é exclusiva de prestadores
   useEffect(() => {
-    if (!authLoading && dbUser && dbUser.role !== "PROVIDER") {
-      router.replace("/home");
-    }
-  }, [authLoading, dbUser, router]);
+    if (authLoading) return;
+    if (!dbUser) { router.replace("/login-colaborador"); return; }
+    if (dbUser.role !== "PROVIDER") { router.replace("/home"); return; }
+    if (id && id !== dbUser.id) { router.replace(`/colaborador/${dbUser.id}/perfil`); }
+  }, [authLoading, dbUser, id, router]);
 
-  if (authLoading || !colab || (dbUser && dbUser.role !== "PROVIDER")) return (
+  if (authLoading || !dbUser || dbUser.role !== "PROVIDER" || id !== dbUser.id || !colab) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0d0d0d", fontFamily: "'Sora',sans-serif", flexDirection: "column", gap: 16 }}>
       <style>{`@keyframes cp-spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #333", borderTopColor: "#fd5b01", animation: "cp-spin 0.8s linear infinite" }} />
