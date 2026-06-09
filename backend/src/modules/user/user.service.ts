@@ -31,7 +31,13 @@ export class UserService {
 
   async create(dto: CreateUserDto) {
     const exists = await this.repo.findByEmail(dto.email);
-    if (exists) return exists; // upsert — retorna usuário existente para o sync do frontend
+    if (exists) {
+      // Permite upgrade USER → PROVIDER quando solicitado
+      if (dto.role === 'PROVIDER' && exists.role !== 'PROVIDER') {
+        return this.repo.update(exists.id, { role: 'PROVIDER' } as any);
+      }
+      return exists;
+    }
     return this.repo.create(dto);
   }
 

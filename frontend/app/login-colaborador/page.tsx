@@ -178,13 +178,16 @@ export default function LoginColaboradorPage() {
       // 5. Redirecionar
       router.push(`/colaborador/${meUser.id}/perfil`);
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? "";
+      const code    = (err as { code?: string }).code ?? "";
+      const message = (err as { message?: string }).message ?? "";
       if (code === "auth/email-already-in-use") {
         setError("Este e-mail já está cadastrado.");
       } else if (code === "auth/invalid-email") {
         setError("Formato de e-mail inválido.");
       } else if (code === "auth/weak-password") {
         setError("Senha muito fraca. Use pelo menos 6 caracteres.");
+      } else if (message) {
+        setError(`Erro: ${message}`);
       } else {
         setError("Erro ao criar conta. Tente novamente.");
       }

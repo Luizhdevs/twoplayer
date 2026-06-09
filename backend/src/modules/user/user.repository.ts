@@ -68,6 +68,7 @@ export class UserRepository {
         ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.bio !== undefined && { bio: dto.bio }),
         ...(dto.birthDate && { birthDate: new Date(dto.birthDate) }),
+        ...(dto.role && { role: dto.role as Role }),
       },
     });
   }
