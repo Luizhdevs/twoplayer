@@ -5,6 +5,8 @@ import Image from "next/image";
 import AgendarButton from "@/components/AgendarButton";
 import AvaliarSection from "@/components/AvaliarSection";
 import { useProvider } from "@/hooks/useProviders";
+import { useAuth } from "@/providers/AuthProvider";
+import { useAppointmentsByUser } from "@/hooks/useAppointments";
 
 function StarFull({ n, rating }: { n: number; rating: number }) {
   const filled = n <= Math.round(rating);
@@ -55,6 +57,8 @@ export default function ProviderPage() {
   const params = useParams<{ id: string }>();
   const id     = params.id;
   const { data: provider, isLoading, isError } = useProvider(id);
+  const { dbUser } = useAuth();
+  const { data: userAppointments } = useAppointmentsByUser(dbUser?.id ?? "");
 
   if (isLoading) return <ProviderSkeleton />;
 
@@ -78,6 +82,11 @@ export default function ProviderPage() {
     user: r.user,
     services: { id: r.services.id ?? "", title: r.services.title },
   }));
+
+  // Primeiro agendamento COMPLETED do usuário com este provider (para avaliação)
+  const reviewAppointmentId = userAppointments?.find(
+    a => a.providerId === provider.id && a.status === "COMPLETED"
+  )?.id;
 
   return (
     <>
@@ -263,7 +272,7 @@ export default function ProviderPage() {
 
           {/* AVALIAÇÕES */}
           <div className="anim-fadeUp" style={{ animationDelay: "0.14s" }}>
-            <AvaliarSection initialReviews={reviewsForSection} />
+            <AvaliarSection initialReviews={reviewsForSection} reviewAppointmentId={reviewAppointmentId} />
           </div>
 
         </div>

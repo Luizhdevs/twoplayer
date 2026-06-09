@@ -1,5 +1,7 @@
 "use client";
 
+import AvaliarButton from "./AvaliarButton";
+
 type Review = {
   id: string; rating: number; comment: string;
   services: { id: string | number; title: string };
@@ -7,6 +9,7 @@ type Review = {
 };
 type Props = {
   initialReviews: Review[];
+  reviewAppointmentId?: string;
 };
 
 function renderStars(rating: number) {
@@ -15,10 +18,13 @@ function renderStars(rating: number) {
   ));
 }
 
-export default function AvaliarSection({ initialReviews }: Props) {
+export default function AvaliarSection({ initialReviews, reviewAppointmentId }: Props) {
   return (
     <div className="pv-card">
-      <div className="pv-section-title" style={{ marginBottom: "1rem" }}>Avaliações</div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem" }}>
+        <div className="pv-section-title" style={{ marginBottom: 0 }}>Avaliações</div>
+        {reviewAppointmentId && <AvaliarButton appointmentId={reviewAppointmentId} />}
+      </div>
       {initialReviews.length === 0 ? (
         <p style={{ fontSize:13, color:"#555", textAlign:"center", padding:"1rem 0" }}>Nenhuma avaliação ainda.</p>
       ) : initialReviews.map(review => (
