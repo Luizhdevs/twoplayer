@@ -102,7 +102,11 @@ export class ProviderService {
   }
 
   async create(dto: CreateProviderDto) {
+    // Sempre garante role PROVIDER
     await this.userRepo.update(dto.userId, { role: 'PROVIDER' } as any);
+    // Se provider já existe (cadastro parcial anterior), retorna o existente
+    const existing = await this.repo.findByUserId(dto.userId);
+    if (existing) return existing;
     return this.repo.create(dto.userId, dto.categories);
   }
 

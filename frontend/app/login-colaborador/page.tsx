@@ -153,46 +153,65 @@ export default function LoginColaboradorPage() {
     if (regPw.length < 6) { setError("A senha deve ter pelo menos 6 caracteres."); return; }
     setLoading(true);
     try {
-      // 1. Firebase
       sessionStorage.setItem("tp_pending_name", regName.trim());
-      const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPw);
-      await updateProfile(user, { displayName: regName.trim() });
-      const token = await user.getIdToken();
-      const headers = { Authorization: `Bearer ${token}` };
 
-      // 2. Criar usuário no DB com role PROVIDER
+      // 1. Firebase — cria conta ou, se já existe, faz login (fluxo idempotente)
+      let fbUser: import("firebase/auth").User;
+      try {
+        const { user } = await createUserWithEmailAndPassword(auth, regEmail, regPw);
+        await updateProfile(user, { displayName: regName.trim() });
+        fbUser = user;
+      } catch (fbErr: unknown) {
+        const fbCode = (fbErr as { code?: string }).code ?? "";
+        if (fbCode === "auth/email-already-in-use") {
+          // Conta Firebase já existe — tenta login e continua o cadastro no DB
+          try {
+            const cred = await signInWithEmailAndPassword(auth, regEmail, regPw);
+            fbUser = cred.user;
+          } catch {
+            setError("Este e-mail já está cadastrado com outra senha.");
+            sessionStorage.removeItem("tp_pending_name");
+            setLoading(false);
+            return;
+          }
+        } else if (fbCode === "auth/invalid-email") {
+          throw Object.assign(new Error("Formato de e-mail inválido."), { handled: true });
+        } else if (fbCode === "auth/weak-password") {
+          throw Object.assign(new Error("Senha muito fraca. Use pelo menos 6 caracteres."), { handled: true });
+        } else {
+          throw fbErr;
+        }
+      }
+
+      // 2. Criar/sincronizar usuário no DB com role PROVIDER
       await api.post("/users", {
-        firebaseUid: user.uid,
-        email: user.email,
-        name: regName.trim(),
+        firebaseUid: fbUser.uid,
+        email: fbUser.email,
+        name: regName.trim() || fbUser.displayName || regEmail.split("@")[0],
         role: "PROVIDER",
       });
 
       // 3. Obter ID do usuário no DB
-      const meRes = await api.get<{ id: string } | { data: { id: string } }>("/users/me", { headers });
-      const meUser = (meRes.data as { data?: { id: string } }).data ?? meRes.data as { id: string };
-      if (!meUser?.id) throw new Error("Usuário não encontrado");
+      const meRes = await api.get("/users/me");
+      const meUser = (meRes.data as { data?: { id: string } }).data ?? (meRes.data as { id: string });
+      if (!meUser?.id) throw new Error("Usuário não encontrado no sistema.");
 
-      // 4. Criar perfil de provider
-      await api.post("/providers", { userId: meUser.id, categories: [] }, { headers });
+      // 4. Criar perfil de provider (backend é idempotente — retorna existente se já criado)
+      await api.post("/providers", { userId: meUser.id, categories: [] });
 
       // 5. Redirecionar
       router.push(`/colaborador/${meUser.id}/perfil`);
     } catch (err: unknown) {
-      const code    = (err as { code?: string }).code ?? "";
+      sessionStorage.removeItem("tp_pending_name");
+      const handled = (err as { handled?: boolean }).handled;
       const message = (err as { message?: string }).message ?? "";
-      if (code === "auth/email-already-in-use") {
-        setError("Este e-mail já está cadastrado.");
-      } else if (code === "auth/invalid-email") {
-        setError("Formato de e-mail inválido.");
-      } else if (code === "auth/weak-password") {
-        setError("Senha muito fraca. Use pelo menos 6 caracteres.");
+      if (handled && message) {
+        setError(message);
       } else if (message) {
-        setError(`Erro: ${message}`);
+        setError(`Erro ao criar conta: ${message}`);
       } else {
         setError("Erro ao criar conta. Tente novamente.");
       }
-      sessionStorage.removeItem("tp_pending_name");
       try { await auth.signOut(); } catch { /* ignore */ }
     } finally {
       setLoading(false);
