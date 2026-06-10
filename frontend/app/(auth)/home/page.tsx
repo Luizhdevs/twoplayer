@@ -308,6 +308,7 @@ export default function HomePage() {
           border: 1px solid rgba(253,91,1,0.18);
           border-radius: 20px;
           overflow: hidden;
+          cursor: pointer;
           box-shadow:
             0 0 0 1px rgba(255,255,255,0.04),
             0 24px 60px rgba(0,0,0,0.55),
@@ -555,6 +556,7 @@ export default function HomePage() {
 
                 {/* RIGHT — provider card */}
                 <div className="hm-hero__right">
+                  <Link href={`/providers/${hero.id}`} style={{ textDecoration: "none", display: "block" }}>
                   <div className={`hm-hero__pcard${heroFading ? " hm-hero__pcard--fading" : ""}`}>
                     <div className="hm-hero__pcard__thumb">
                       <Image
@@ -572,6 +574,7 @@ export default function HomePage() {
                       </span>
                     </div>
                   </div>
+                  </Link>
                 </div>
 
               </div>
