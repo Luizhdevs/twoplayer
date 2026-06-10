@@ -11,7 +11,7 @@ export function useHomeProviders() {
   return useQuery({
     queryKey: [...PROVIDERS_KEY, "home"],
     queryFn:  providersService.getHome,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 }
 
