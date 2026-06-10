@@ -177,8 +177,8 @@ export default function HomePage() {
         }
         .hm-hero__img {
           object-fit: cover;
-          object-position: center top;
-          filter: brightness(0.70) saturate(1.1);
+          object-position: center 20%;
+          filter: brightness(0.65) saturate(1.05) blur(1px);
           transition: opacity 0.45s ease;
         }
         .hm-hero__img--fading { opacity: 0; }
@@ -244,12 +244,11 @@ export default function HomePage() {
         }
         .hm-hero__dots {
           position: absolute;
-          bottom: 5%; right: 0;
-          padding-right: max(20px, 4%);
+          /* keep dots above the -44px body overlap zone */
+          bottom: calc(44px + 20px);
+          right: max(20px, 4%);
           display: flex; gap: 8px; align-items: center;
-          max-width: 1280px;
-          /* align dots with right edge of container */
-          margin-right: 0;
+          z-index: 3;
         }
         .hm-hero__dot {
           border: none; padding: 0; cursor: pointer;
