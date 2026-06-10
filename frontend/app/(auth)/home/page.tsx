@@ -303,12 +303,70 @@ export default function HomePage() {
           width: clamp(240px, 26vw, 320px);
         }
 
+        /* ── Hero provider profile card ── */
+        .hm-hero__pcard-link { text-decoration: none; display: block; }
+
+        /* wrapper que define o contexto de posicionamento */
+        .hm-hero__pcard-outer {
+          position: relative;
+          padding-top: 48px; /* espaço para a metade superior do avatar */
+        }
+
+        /* faixa de cover borrada no topo do outer */
+        .hm-hero__pcard__cover {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 80px;
+          border-radius: 20px 20px 0 0;
+          overflow: hidden;
+          z-index: 0;
+        }
+        .hm-hero__pcard__cover-img {
+          object-fit: cover;
+          object-position: center 30%;
+          filter: brightness(0.38) blur(3px) saturate(1.2);
+        }
+        .hm-hero__pcard__cover-grad {
+          position: absolute; inset: 0;
+          background: linear-gradient(to bottom,
+            rgba(20,20,20,0) 0%,
+            rgba(20,20,20,0.85) 100%);
+        }
+
+        /* avatar circular — centralizado, metade acima do card */
+        .hm-hero__pcard__avatar-wrap {
+          position: absolute;
+          top: 0; left: 50%;
+          transform: translateX(-50%);
+          z-index: 3;
+          width: 96px; height: 96px;
+          border-radius: 50%;
+          border: 3px solid #fd5b01;
+          box-shadow: 0 0 0 4px rgba(20,20,20,0.95),
+                      0 8px 24px rgba(0,0,0,0.6),
+                      0 0 20px rgba(253,91,1,0.25);
+          overflow: hidden;
+          background: #111;
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .hm-hero__pcard-link:hover .hm-hero__pcard__avatar-wrap {
+          transform: translateX(-50%) scale(1.07);
+          box-shadow: 0 0 0 4px rgba(20,20,20,0.95),
+                      0 12px 32px rgba(0,0,0,0.7),
+                      0 0 28px rgba(253,91,1,0.40);
+        }
+        .hm-hero__pcard__avatar-img {
+          object-fit: cover;
+          object-position: center top;
+        }
+
+        /* card principal */
         .hm-hero__pcard {
-          background: #161616;
+          position: relative; z-index: 1;
+          background: #141414;
           border: 1px solid rgba(253,91,1,0.18);
           border-radius: 20px;
           overflow: hidden;
-          cursor: pointer;
           box-shadow:
             0 0 0 1px rgba(255,255,255,0.04),
             0 24px 60px rgba(0,0,0,0.55),
@@ -319,46 +377,25 @@ export default function HomePage() {
           opacity: 0; transform: scale(0.96) translateY(8px);
         }
 
-        .hm-hero__pcard__thumb {
-          position: relative;
-          width: 100%; padding-top: 100%;
-          background: #111; overflow: hidden;
-        }
-        .hm-hero__pcard__img {
-          object-fit: cover;
-          object-position: center top;
-          transition: transform 0.5s ease;
-        }
-        .hm-hero__pcard:hover .hm-hero__pcard__img {
-          transform: scale(1.04);
-        }
-        .hm-hero__pcard__shine {
-          position: absolute; inset: 0;
-          background: linear-gradient(
-            135deg,
-            rgba(255,255,255,0.05) 0%,
-            transparent 50%,
-            rgba(0,0,0,0.15) 100%);
-          pointer-events: none;
-        }
-
-        .hm-hero__pcard__footer {
-          padding: 14px 16px 16px;
-          display: flex; align-items: center;
-          justify-content: space-between; gap: 10px;
-          background: linear-gradient(to bottom, #161616, #111);
+        /* corpo de texto do card */
+        .hm-hero__pcard__body {
+          display: flex; flex-direction: column;
+          align-items: center; gap: 10px;
+          padding: 52px 20px 24px; /* 52px = espaço para a metade inferior do avatar */
+          text-align: center;
         }
         .hm-hero__pcard__name {
-          font-size: 14px; font-weight: 700; color: #f0f0f0;
+          font-size: 17px; font-weight: 800; color: #f0f0f0;
           margin: 0; white-space: nowrap;
           overflow: hidden; text-overflow: ellipsis;
+          max-width: 100%;
+          letter-spacing: -0.02em;
         }
         .hm-hero__pcard__badge {
-          flex-shrink: 0;
-          font-size: 12px; font-weight: 800; color: #fd5b01;
+          font-size: 13px; font-weight: 800; color: #fd5b01;
           background: rgba(253,91,1,0.10);
-          border: 1px solid rgba(253,91,1,0.22);
-          padding: 4px 10px; border-radius: 6px;
+          border: 1px solid rgba(253,91,1,0.25);
+          padding: 5px 16px; border-radius: 8px;
           white-space: nowrap;
         }
 
@@ -556,24 +593,26 @@ export default function HomePage() {
 
                 {/* RIGHT — provider card */}
                 <div className="hm-hero__right">
-                  <Link href={`/providers/${hero.id}`} style={{ textDecoration: "none", display: "block" }}>
-                  <div className={`hm-hero__pcard${heroFading ? " hm-hero__pcard--fading" : ""}`}>
-                    <div className="hm-hero__pcard__thumb">
-                      <Image
-                        src={hero.avatarUrl}
-                        fill alt={hero.name}
-                        className="hm-hero__pcard__img"
-                        priority sizes="320px"
-                      />
-                      <div className="hm-hero__pcard__shine" />
+                  <Link href={`/providers/${hero.id}`} className="hm-hero__pcard-link">
+                    {/* outer: deixa espaço no topo para o avatar sobresair */}
+                    <div className="hm-hero__pcard-outer">
+                      {/* faixa de cover borrada no topo */}
+                      <div className="hm-hero__pcard__cover" aria-hidden="true">
+                        <Image src={hero.avatarUrl} fill alt="" className="hm-hero__pcard__cover-img" sizes="320px" />
+                        <div className="hm-hero__pcard__cover-grad" />
+                      </div>
+                      {/* avatar circular */}
+                      <div className="hm-hero__pcard__avatar-wrap">
+                        <Image src={hero.avatarUrl} fill alt={hero.name} className="hm-hero__pcard__avatar-img" sizes="96px" priority />
+                      </div>
+                      {/* card body */}
+                      <div className={`hm-hero__pcard${heroFading ? " hm-hero__pcard--fading" : ""}`}>
+                        <div className="hm-hero__pcard__body">
+                          <p className="hm-hero__pcard__name">{hero.name}</p>
+                          <span className="hm-hero__pcard__badge">R$ {Number(hero.price).toFixed(2)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="hm-hero__pcard__footer">
-                      <p className="hm-hero__pcard__name">{hero.name}</p>
-                      <span className="hm-hero__pcard__badge">
-                        R$ {Number(hero.price).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
                   </Link>
                 </div>
 
