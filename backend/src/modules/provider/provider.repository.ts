@@ -7,7 +7,10 @@ export class ProviderRepository {
 
   findAll() {
     return this.prisma.provider.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        services: { some: { deletedAt: null, isActive: true } },
+      },
       include: {
         user: true,
         services: { where: { deletedAt: null, isActive: true } },
