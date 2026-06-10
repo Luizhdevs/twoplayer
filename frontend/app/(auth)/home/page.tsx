@@ -31,7 +31,8 @@ function ProviderCard({ provider, rank }: { provider: ProviderCard; rank?: numbe
     <Link href={`/providers/${provider.id}`} className="hm-card">
       <div className="hm-card__thumb">
         <Image src={provider.avatarUrl} fill alt={provider.name}
-          className="hm-card__img" sizes="(max-width:600px) 200px, 260px" />
+          className="hm-card__img" sizes="(max-width:600px) 200px, 260px"
+          draggable={false} style={{ pointerEvents: "none" }} />
         <div className="hm-card__overlay" />
         <span className="hm-card__price">R$ {Number(provider.price).toFixed(2)}</span>
         {rank != null && <span className="hm-card__rank">{rank}</span>}
@@ -598,12 +599,12 @@ export default function HomePage() {
                     <div className="hm-hero__pcard-outer">
                       {/* faixa de cover borrada no topo */}
                       <div className="hm-hero__pcard__cover" aria-hidden="true">
-                        <Image src={hero.avatarUrl} fill alt="" className="hm-hero__pcard__cover-img" sizes="320px" />
+                        <Image src={hero.avatarUrl} fill alt="" className="hm-hero__pcard__cover-img" sizes="320px" draggable={false} style={{ pointerEvents: "none" }} />
                         <div className="hm-hero__pcard__cover-grad" />
                       </div>
                       {/* avatar circular */}
                       <div className="hm-hero__pcard__avatar-wrap">
-                        <Image src={hero.avatarUrl} fill alt={hero.name} className="hm-hero__pcard__avatar-img" sizes="96px" priority />
+                        <Image src={hero.avatarUrl} fill alt={hero.name} className="hm-hero__pcard__avatar-img" sizes="96px" priority draggable={false} style={{ pointerEvents: "none" }} />
                       </div>
                       {/* card body */}
                       <div className={`hm-hero__pcard${heroFading ? " hm-hero__pcard--fading" : ""}`}>
